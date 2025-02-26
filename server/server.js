@@ -11,7 +11,7 @@ const server = http.createServer(app);
 
 // Configuração do CORS para produção
 const corsOptions = {
-  origin: ['https://chatrioo.netlify.app', 'http://localhost:3000'],
+  origin: 'https://chatrioo.netlify.app',
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept'],
@@ -24,12 +24,11 @@ app.use(cors(corsOptions));
 
 // Middleware adicional para garantir headers CORS
 app.use((req, res, next) => {
-  res.header('Access-Control-Allow-Origin', req.headers.origin || '*');
+  res.header('Access-Control-Allow-Origin', 'https://chatrioo.netlify.app');
   res.header('Access-Control-Allow-Credentials', 'true');
   res.header('Access-Control-Allow-Methods', 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS');
   res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
   
-  // Interceptar requisições OPTIONS
   if (req.method === 'OPTIONS') {
     return res.status(204).end();
   }
@@ -39,12 +38,12 @@ app.use((req, res, next) => {
 // Configuração do Socket.IO com CORS
 const io = socketIo(server, {
   cors: {
-    origin: true, // Reflect the request origin
-    methods: ["GET", "POST", "PUT", "DELETE"],
+    origin: 'https://chatrioo.netlify.app',
+    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     credentials: true,
     allowedHeaders: ['Content-Type', 'Authorization']
   },
-  allowEIO3: true // Permitir Engine.IO versão 3
+  allowEIO3: true
 });
 
 // Middleware para parsing JSON e URL encoded
