@@ -109,15 +109,10 @@ const sendMessage = async (content) => {
         // Obter a mensagem criada da resposta
         const messageData = await response.json();
 
-        // Criar e exibir a mensagem imediatamente
-        const container = document.getElementById('messageContainer');
-        const messageElement = createMessageElement(messageData);
-        container.appendChild(messageElement);
-        scrollToBottom();
-
         // Emitir a mensagem via Socket.IO
         socket.emit('chat message', { room: currentRoom, message: messageData });
 
+        // Limpar o input e manter o foco
         const messageInput = document.getElementById('messageInput');
         messageInput.value = '';
         messageInput.focus();
