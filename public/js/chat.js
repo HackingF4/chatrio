@@ -1,7 +1,10 @@
 // Configuração do Socket.io e API
 const socket = io(window.location.hostname === 'localhost' 
     ? 'http://localhost:3000'
-    : 'https://web-producao-fa86.up.railway.app');
+    : 'https://web-production-fa86.up.railway.app', {
+    withCredentials: true,
+    transports: ['websocket', 'polling']
+});
 
 const API_URL = window.location.hostname === 'localhost' 
     ? 'http://localhost:3000/api'
@@ -102,6 +105,18 @@ const sendMessage = async (content) => {
             const data = await response.json();
             throw new Error(data.message || 'Erro ao enviar mensagem');
         }
+
+        // Obter a mensagem criada da resposta
+        const messageData = await response.json();
+
+        // Criar e exibir a mensagem imediatamente
+        const container = document.getElementById('messageContainer');
+        const messageElement = createMessageElement(messageData);
+        container.appendChild(messageElement);
+        scrollToBottom();
+
+        // Emitir a mensagem via Socket.IO
+        socket.emit('chat message', { room: currentRoom, message: messageData });
 
         const messageInput = document.getElementById('messageInput');
         messageInput.value = '';
@@ -566,10 +581,16 @@ socket.on('connect', () => {
 });
 
 socket.on('new message', (message) => {
-    const container = document.getElementById('messageContainer');
-    const messageElement = createMessageElement(message);
-    container.appendChild(messageElement);
-    scrollToBottom();
+    if (message.room === currentRoom) {
+        // Verificar se a mensagem já existe
+        const existingMessage = document.querySelector(`[data-message-id="${message._id}"]`);
+        if (!existingMessage) {
+            const container = document.getElementById('messageContainer');
+            const messageElement = createMessageElement(message);
+            container.appendChild(messageElement);
+            scrollToBottom();
+        }
+    }
 });
 
 socket.on('users online', (users) => {
