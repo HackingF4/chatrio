@@ -14,6 +14,7 @@ const allowedOrigins = [
   'http://localhost:3000',
   'https://chatrio.netlify.app',
   'https://chatrioo.netlify.app',
+  'https://web-producao-fa86.up.railway.app',
   process.env.FRONTEND_URL // Permite URL dinâmica do frontend
 ].filter(Boolean); // Remove valores undefined/null
 
@@ -29,6 +30,7 @@ const io = socketIo(server, {
 // Middleware
 app.use(cors({
   origin: function(origin, callback) {
+    // Permitir requisições sem origin (como mobile apps ou curl)
     if (!origin || allowedOrigins.indexOf(origin) !== -1) {
       callback(null, true);
     } else {
