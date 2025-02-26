@@ -137,7 +137,7 @@ const register = async (username, email, password) => {
         // Limpar qualquer cache antigo
         sessionStorage.clear();
         
-        window.location.href = '/chat.html';
+        window.location.href = '/batepapo';
     } catch (error) {
         console.error('Erro no registro:', error);
         alert(error.message);
