@@ -134,24 +134,30 @@ const updateOnlineUsers = (users) => {
     const isAdmin = currentUser.role === 'admin';
 
     // Mostrar/ocultar painel de admin
+    document.getElementById('adminPanelButton').style.display = isAdmin ? 'flex' : 'none';
     adminPanel.style.display = isAdmin ? 'block' : 'none';
 
     users.forEach(user => {
         // Lista normal de usuários
-        const li = document.createElement('li');
-        li.innerHTML = `
-            <img src="${user.profileImage}" alt="Avatar" class="avatar" style="width: 24px; height: 24px;">
-            ${user.username}
+        const userItem = document.createElement('div');
+        userItem.className = 'user-item';
+        userItem.innerHTML = `
+            <img src="${user.profileImage || 'https://www.gravatar.com/avatar/00000000000000000000000000000000?d=mp&f=y'}" 
+                 alt="Avatar" class="user-avatar">
+            <span class="username">${user.username}</span>
+            ${user.role === 'admin' ? '<span class="admin-tag">Admin</span>' : ''}
+            ${user.isMuted ? '<span class="muted-tag">Mutado</span>' : ''}
         `;
-        userList.appendChild(li);
+        userList.appendChild(userItem);
 
         // Lista de usuários no painel de admin
         if (isAdmin && user.username !== currentUser.username) {
-            const userItem = document.createElement('div');
-            userItem.className = 'user-item-admin';
-            userItem.innerHTML = `
+            const adminUserItem = document.createElement('div');
+            adminUserItem.className = 'user-item-admin';
+            adminUserItem.innerHTML = `
                 <div class="user-info">
-                    <img src="${user.profileImage}" alt="Avatar" class="avatar" style="width: 24px; height: 24px;">
+                    <img src="${user.profileImage || 'https://www.gravatar.com/avatar/00000000000000000000000000000000?d=mp&f=y'}" 
+                         alt="Avatar" class="avatar" style="width: 24px; height: 24px;">
                     <span>${user.username}</span>
                     ${user.isMuted ? '<span class="user-status status-muted">Mutado</span>' : ''}
                     ${user.role === 'admin' ? '<span class="user-status status-admin">Admin</span>' : ''}
@@ -165,7 +171,7 @@ const updateOnlineUsers = (users) => {
                     ` : ''}
                 </div>
             `;
-            userListAdmin.appendChild(userItem);
+            userListAdmin.appendChild(adminUserItem);
         }
     });
 };
@@ -431,16 +437,21 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     // Conectar ao Socket.io e enviar dados do usuário
-    socket.emit('user connected', {
-        id: currentUser.id,
-        username: currentUser.username,
-        profileImage: currentUser.profileImage || 'https://www.gravatar.com/avatar/00000000000000000000000000000000?d=mp&f=y',
-        role: currentUser.role,
-        isMuted: currentUser.isMuted
-    });
+    if (currentUser) {
+        socket.emit('user connected', {
+            id: currentUser.id,
+            username: currentUser.username,
+            profileImage: currentUser.profileImage || 'https://www.gravatar.com/avatar/00000000000000000000000000000000?d=mp&f=y',
+            role: currentUser.role,
+            isMuted: currentUser.isMuted
+        });
 
-    // Solicitar lista de usuários ao carregar
-    socket.emit('get users');
+        // Solicitar lista de usuários ao carregar
+        socket.emit('get users');
+
+        // Entrar na sala padrão
+        socket.emit('join room', currentRoom);
+    }
 
     // Atualizar informações do usuário
     document.getElementById('username').textContent = currentUser.username;
@@ -573,12 +584,25 @@ document.addEventListener('DOMContentLoaded', () => {
 socket.on('connect', () => {
     console.log('Conectado ao servidor Socket.io');
     
-    // Reconectar à sala atual e solicitar lista de usuários
-    socket.emit('join room', currentRoom);
-    socket.emit('get users');
-    
-    // Recarregar mensagens ao reconectar
-    loadMessages(currentRoom);
+    if (currentUser) {
+        // Reconectar à sala atual
+        socket.emit('join room', currentRoom);
+        
+        // Enviar dados do usuário novamente
+        socket.emit('user connected', {
+            id: currentUser.id,
+            username: currentUser.username,
+            profileImage: currentUser.profileImage || 'https://www.gravatar.com/avatar/00000000000000000000000000000000?d=mp&f=y',
+            role: currentUser.role,
+            isMuted: currentUser.isMuted
+        });
+        
+        // Solicitar lista atualizada de usuários
+        socket.emit('get users');
+        
+        // Recarregar mensagens
+        loadMessages(currentRoom);
+    }
 });
 
 socket.on('disconnect', () => {
