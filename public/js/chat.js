@@ -166,12 +166,21 @@ const updateOnlineUsers = (users) => {
     usersTitle.innerHTML = `<h3>Usuários Online (${users.length})</h3>`;
     userList.appendChild(usersTitle);
 
+    // Ordenar usuários: admins primeiro, depois por nome
+    users.sort((a, b) => {
+        if (a.role === 'admin' && b.role !== 'admin') return -1;
+        if (a.role !== 'admin' && b.role === 'admin') return 1;
+        return a.username.localeCompare(b.username);
+    });
+
     users.forEach(user => {
         if (!user || !user.username) return;
 
         // Lista normal de usuários
         const userItem = document.createElement('div');
         userItem.className = 'user-item';
+        if (user.isMuted) userItem.classList.add('muted');
+        
         userItem.innerHTML = `
             <img src="${user.profileImage || 'https://www.gravatar.com/avatar/00000000000000000000000000000000?d=mp&f=y'}" 
                  alt="Avatar" class="user-avatar">
@@ -185,6 +194,8 @@ const updateOnlineUsers = (users) => {
         if (isAdmin && user.username !== currentUser.username) {
             const adminUserItem = document.createElement('div');
             adminUserItem.className = 'user-item-admin';
+            if (user.isMuted) adminUserItem.classList.add('muted');
+            
             adminUserItem.innerHTML = `
                 <div class="user-info">
                     <img src="${user.profileImage || 'https://www.gravatar.com/avatar/00000000000000000000000000000000?d=mp&f=y'}" 
@@ -205,11 +216,6 @@ const updateOnlineUsers = (users) => {
             userListAdmin.appendChild(adminUserItem);
         }
     });
-
-    // Forçar atualização da interface
-    userList.style.display = 'none';
-    userList.offsetHeight; // Força um reflow
-    userList.style.display = 'block';
 };
 
 // Função para rolar para o final das mensagens
@@ -614,17 +620,30 @@ document.addEventListener('DOMContentLoaded', () => {
             modal.style.display = 'none';
         }
     });
+
+    // Remover o setInterval antigo e usar um intervalo mais longo
+    const updateInterval = setInterval(() => {
+        if (socket.connected) {
+            socket.emit('get users');
+        }
+    }, 30000); // Atualiza a cada 30 segundos
+
+    // Limpar o intervalo quando a página for fechada
+    window.addEventListener('beforeunload', () => {
+        clearInterval(updateInterval);
+    });
 });
 
 // Socket.io event listeners
 socket.on('connect', () => {
     console.log('Conectado ao servidor Socket.io');
     
-    if (currentUser) {
-        // Reconectar à sala atual
-        socket.emit('join room', currentRoom);
+    // Carregar usuário atual do localStorage
+    const storedUser = localStorage.getItem('user');
+    if (storedUser) {
+        currentUser = JSON.parse(storedUser);
         
-        // Enviar dados do usuário novamente
+        // Enviar dados do usuário
         socket.emit('user connected', {
             id: currentUser.id,
             username: currentUser.username,
@@ -632,17 +651,15 @@ socket.on('connect', () => {
             role: currentUser.role,
             isMuted: currentUser.isMuted
         });
+
+        // Entrar na sala atual
+        socket.emit('join room', currentRoom);
         
-        // Solicitar lista atualizada de usuários
+        // Solicitar lista de usuários
         socket.emit('get users');
         
-        // Recarregar mensagens
+        // Carregar mensagens
         loadMessages(currentRoom);
-
-        // Configurar intervalo para atualização periódica
-        setInterval(() => {
-            socket.emit('get users');
-        }, 10000); // Atualiza a cada 10 segundos
     }
 });
 
