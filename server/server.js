@@ -53,11 +53,14 @@ app.use((req, res, next) => {
 // Configuração do Socket.IO com CORS
 const io = socketIo(server, {
   cors: {
-    origin: allowedOrigins,
+    origin: '*', // Permitir todas as origens temporariamente
     methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     credentials: true,
     allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept']
-  }
+  },
+  transports: ['websocket', 'polling'], // Suporte a fallback para polling
+  pingTimeout: 60000, // Aumentar timeout
+  pingInterval: 25000 // Ajustar intervalo de ping
 });
 
 // Middleware para parsing JSON e URL encoded
@@ -127,17 +130,19 @@ io.on('connection', (socket) => {
     
     // Emitir a mensagem para todos os usuários na sala
     const newMessage = {
+      _id: Date.now().toString(), // Adicionar ID único para cada mensagem
       content: message.content,
       sender: {
         username: user.username,
         profileImage: user.profileImage || 'https://www.gravatar.com/avatar/00000000000000000000000000000000?d=mp&f=y'
       },
       createdAt: new Date(),
-      room: room // Adicionar a sala na mensagem
+      room: room
     };
     
     console.log('Enviando mensagem para sala:', room, newMessage);
-    // Emitir para todos, incluindo o remetente
+    
+    // Emitir para todos os clientes, incluindo o remetente
     io.emit('new message', newMessage);
   });
 

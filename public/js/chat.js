@@ -11,6 +11,7 @@ let socket;
 let currentUser;
 let currentRoom = 'Bate-papo 1';
 let darkMode = localStorage.getItem('darkMode') === 'true';
+let messageIds = new Set(); // Para evitar duplicação de mensagens
 
 // Verificar autenticação ao carregar a página
 const checkAuth = () => {
@@ -37,16 +38,22 @@ const checkAuth = () => {
 const initializeSocket = () => {
     if (!checkAuth()) return;
 
+    // Desconectar socket existente se houver
+    if (socket) {
+        socket.disconnect();
+        socket.removeAllListeners();
+    }
+
     socket = io(SOCKET_URL, {
         auth: {
             token: getToken()
         },
-        transports: ['websocket'],
-        upgrade: false,
+        transports: ['websocket', 'polling'], // Suporte a fallback para polling
         reconnection: true,
         reconnectionAttempts: Infinity,
         reconnectionDelay: 1000,
-        timeout: 20000
+        timeout: 20000,
+        forceNew: true // Força nova conexão
     });
 
     setupSocketListeners();
@@ -84,6 +91,17 @@ const setupSocketListeners = () => {
 
     socket.on('new message', (message) => {
         console.log('Nova mensagem recebida:', message);
+        
+        // Verificar se a mensagem já foi exibida
+        const messageId = message._id || `${message.sender.username}-${message.createdAt}-${message.content}`;
+        if (messageIds.has(messageId)) {
+            console.log('Mensagem duplicada ignorada:', messageId);
+            return;
+        }
+        
+        // Adicionar ID da mensagem ao Set
+        messageIds.add(messageId);
+        
         // Verificar se a mensagem é da sala atual
         if (message.room === currentRoom) {
             const container = document.getElementById('messageContainer');
@@ -322,7 +340,7 @@ const createMessageElement = (message) => {
 const sendMessage = (text) => {
     if (!socket || !socket.connected) {
         console.log('Socket não conectado. Tentando reconectar...');
-        socket.connect();
+        initializeSocket(); // Reinicializar socket se não estiver conectado
         return;
     }
 
@@ -341,7 +359,18 @@ const sendMessage = (text) => {
     };
 
     console.log('Enviando mensagem:', messageData);
-    socket.emit('chat message', messageData);
+    
+    // Tentar enviar a mensagem com retry
+    const tryEmit = (retries = 3) => {
+        socket.emit('chat message', messageData, (error) => {
+            if (error && retries > 0) {
+                console.log(`Erro ao enviar mensagem, tentando novamente... (${retries} tentativas restantes)`);
+                setTimeout(() => tryEmit(retries - 1), 1000);
+            }
+        });
+    };
+    
+    tryEmit();
 
     // Limpar o campo de mensagem
     const messageInput = document.getElementById('messageInput');
