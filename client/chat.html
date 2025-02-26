@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chatrio</title>
+    <!-- Favicons -->
+    <link rel="icon" type="image/x-icon" href="images/favicon.ico">
+    <link rel="icon" type="image/png" sizes="96x96" href="images/favicon-96x96.png">
+    <link rel="icon" type="image/png" sizes="32x32" href="images/favicon-32x32.png">
+    <link rel="icon" type="image/png" sizes="16x16" href="images/favicon-16x16.png">
+    <link rel="apple-touch-icon" sizes="180x180" href="images/apple-touch-icon.png">
+    <link rel="manifest" href="images/site.webmanifest">
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <script type="module" src="https://cdn.jsdelivr.net/npm/emoji-picker-element@1/index.js"></script>
+</head>
+<body class="chat-page">
+    <div class="chat-container">
+        <!-- Barra lateral -->
+        <div class="sidebar">
+            <div class="logo-container">
+                <img src="images/logo.png" alt="Chat App Logo" class="logo">
+            </div>
+            <div class="user-info">
+                <div class="avatar-container" onclick="document.getElementById('profileModal').style.display='block'">
+                    <img id="userAvatar" src="https://www.gravatar.com/avatar/00000000000000000000000000000000?d=mp&f=y" alt="Avatar" class="avatar">
+                    <div class="avatar-overlay">
+                        <i class="fas fa-camera"></i>
+                    </div>
+                </div>
+                <span id="username">Carregando...</span>
+                <div class="user-actions">
+                    <button id="adminPanelButton" class="admin-panel-button" style="display: none;">
+                        <i class="fas fa-shield-alt"></i>
+                        Painel Admin
+                    </button>
+                    <button id="logoutButton" class="logout-button">
+                        <i class="fas fa-sign-out-alt"></i>
+                    </button>
+                </div>
+            </div>
+            <div class="channels">
+                <h3>Canais</h3>
+                <ul id="channelList">
+                    <li class="active"># Bate-papo 1</li>
+                    <li># Bate-papo 2</li>
+                </ul>
+            </div>
+            <div class="users-online">
+                <h3>Usuários Online</h3>
+                <ul id="userList">
+                    <!-- Lista de usuários será preenchida via JavaScript -->
+                </ul>
+            </div>
+            <div id="adminPanel" class="admin-panel" style="display: none;">
+                <h3>Painel de Administrador</h3>
+                <div class="admin-actions">
+                    <div class="chat-actions">
+                        <h4>Gerenciar Chat</h4>
+                        <button id="clearChatButton" class="btn-danger" onclick="window.clearChat()">
+                            <i class="fas fa-trash"></i> Limpar Chat
+                        </button>
+                    </div>
+                    <h4>Gerenciar Usuários</h4>
+                    <div class="user-list-admin">
+                        <!-- Lista de usuários com ações será preenchida via JavaScript -->
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Área principal do chat -->
+        <div class="chat-main">
+            <div class="chat-header">
+                <h2># <span id="currentChannel">geral</span></h2>
+                <div class="header-actions">
+                    <button id="themeToggle" class="theme-toggle">
+                        <i class="fas fa-moon"></i>
+                    </button>
+                </div>
+            </div>
+
+            <div class="messages" id="messageContainer">
+                <!-- Mensagens serão preenchidas via JavaScript -->
+            </div>
+
+            <div class="message-input">
+                <form id="messageForm">
+                    <div class="input-wrapper">
+                        <input type="text" id="messageInput" placeholder="Digite sua mensagem..." autocomplete="off">
+                        <div class="emoji-wrapper">
+                            <button type="button" id="emojiButton" class="emoji-button">
+                                <i class="far fa-smile"></i>
+                            </button>
+                            <emoji-picker id="emojiPicker" class="light"></emoji-picker>
+                        </div>
+                    </div>
+                    <button type="submit" class="send-button">
+                        <i class="fas fa-paper-plane"></i>
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal de Upload de Foto -->
+    <div id="profileModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Alterar Foto de Perfil</h2>
+                <span class="close" onclick="document.getElementById('profileModal').style.display='none'">&times;</span>
+            </div>
+            <div class="modal-body">
+                <div class="upload-area" id="uploadArea">
+                    <input type="file" id="fileInput" accept="image/*" style="display: none">
+                    <div class="upload-preview">
+                        <img id="imagePreview" src="" alt="Preview">
+                    </div>
+                    <button type="button" class="upload-button" onclick="document.getElementById('fileInput').click()">
+                        <i class="fas fa-upload"></i> Escolher Foto
+                    </button>
+                </div>
+                <div class="upload-actions">
+                    <button type="button" class="btn-secondary" onclick="document.getElementById('profileModal').style.display='none'">Cancelar</button>
+                    <button type="button" class="btn-primary" id="saveProfilePhoto">Salvar</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.2/socket.io.min.js"></script>
+    <script src="js/chat.js"></script>
+</body>
+</html> 
