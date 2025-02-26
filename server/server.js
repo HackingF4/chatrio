@@ -167,7 +167,7 @@ mongoose.connect(MONGODB_URI, {
 })
 .then(() => {
   console.log('Conectado ao MongoDB');
-  const PORT = process.env.PORT || 3000;
+  const PORT = process.env.PORT || 8080;
   server.listen(PORT, '0.0.0.0', () => {
     console.log(`Servidor rodando na porta ${PORT}`);
   });
