@@ -7,11 +7,12 @@ const API_URL = window.location.hostname === 'localhost'
     ? 'http://localhost:3000/api'
     : 'https://web-production-fa86.up.railway.app/api';
 
-let socket;
-let currentUser;
+let socket = null;
+let currentUser = null;
 let currentRoom = 'Bate-papo 1';
 let darkMode = localStorage.getItem('darkMode') === 'true';
-let processedMessages = new Set(); // Controle de mensagens já processadas
+let processedMessages = new Set();
+let isConnecting = false;
 
 // Verificar autenticação ao carregar a página
 const checkAuth = () => {
@@ -36,74 +37,74 @@ const checkAuth = () => {
 
 // Inicializar conexão com Socket.IO
 const initializeSocket = () => {
-    if (!checkAuth()) return;
-
-    // Limpar socket existente
+    if (!checkAuth() || isConnecting) return;
+    
+    isConnecting = true;
+    
     if (socket) {
         socket.disconnect();
         socket.removeAllListeners();
+        socket = null;
     }
-
-    // Limpar mensagens processadas ao reconectar
+    
     processedMessages.clear();
-
+    
     socket = io(SOCKET_URL, {
         auth: { token: getToken() },
         transports: ['websocket'],
         reconnection: true,
         reconnectionAttempts: 5,
         reconnectionDelay: 1000,
-        timeout: 10000
+        timeout: 10000,
+        forceNew: true
     });
 
-    setupSocketListeners();
-};
-
-// Configurar listeners do Socket.IO
-const setupSocketListeners = () => {
     socket.on('connect', () => {
         console.log('Conectado ao servidor');
+        isConnecting = false;
         socket.emit('user connected', currentUser);
         socket.emit('join room', currentRoom);
         loadMessages();
     });
 
+    socket.on('disconnect', () => {
+        console.log('Desconectado do servidor');
+        isConnecting = false;
+    });
+
+    socket.on('connect_error', (error) => {
+        console.error('Erro de conexão:', error);
+        isConnecting = false;
+    });
+
     socket.on('new message', (message) => {
-        console.log('Nova mensagem recebida:', message);
+        if (!message || !message._id) return;
         
-        // Criar ID único para a mensagem
-        const messageId = message._id || `${message.sender.username}-${message.createdAt}-${message.content}`;
-        
-        // Verificar se a mensagem já foi processada
-        if (processedMessages.has(messageId)) {
-            console.log('Mensagem duplicada ignorada:', messageId);
+        if (processedMessages.has(message._id)) {
+            console.log('Mensagem já processada:', message._id);
             return;
         }
-
-        // Adicionar ao controle de mensagens processadas
-        processedMessages.add(messageId);
-
-        // Verificar se a mensagem é da sala atual
+        
+        processedMessages.add(message._id);
+        
+        if (processedMessages.size > 1000) {
+            const [firstItem] = processedMessages;
+            processedMessages.delete(firstItem);
+        }
+        
         if (message.room === currentRoom) {
             const container = document.getElementById('messageContainer');
             if (!container) return;
-
-            // Verificar se a mensagem já existe no DOM
-            const existingMessage = container.querySelector(`[data-message-id="${messageId}"]`);
-            if (existingMessage) {
-                console.log('Mensagem já existe no DOM:', messageId);
-                return;
-            }
-
+            
             const messageElement = createMessageElement(message);
-            messageElement.dataset.messageId = messageId;
+            messageElement.dataset.messageId = message._id;
             container.appendChild(messageElement);
             scrollToBottom();
         }
     });
 
     socket.on('users online', (users) => {
-        console.log('Usuários online:', users);
+        if (!Array.isArray(users)) return;
         updateOnlineUsers(users);
     });
 
@@ -329,14 +330,8 @@ const createMessageElement = (message) => {
 
 // Função para enviar mensagem
 const sendMessage = (text) => {
-    if (!socket || !socket.connected) {
-        console.log('Socket não conectado, reconectando...');
-        initializeSocket();
-        return;
-    }
-
-    if (!text.trim()) return;
-
+    if (!socket || !socket.connected || !text.trim()) return;
+    
     const messageData = {
         room: currentRoom,
         message: {
@@ -347,11 +342,9 @@ const sendMessage = (text) => {
             }
         }
     };
-
-    // Enviar mensagem
+    
     socket.emit('chat message', messageData);
-
-    // Limpar input
+    
     const messageInput = document.getElementById('messageInput');
     if (messageInput) {
         messageInput.value = '';

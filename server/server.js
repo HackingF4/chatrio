@@ -71,13 +71,25 @@ app.set('io', io);
 
 // Socket.io
 const connectedUsers = new Map();
-const messageCache = new Set(); // Cache para evitar duplicação
+const messageCache = new Map(); // Cache para evitar duplicação
+const MESSAGE_CACHE_SIZE = 1000;
+
+// Função para limpar mensagens antigas do cache
+const cleanMessageCache = () => {
+  if (messageCache.size > MESSAGE_CACHE_SIZE) {
+    const entries = Array.from(messageCache.entries());
+    const oldestEntries = entries.slice(0, entries.length - MESSAGE_CACHE_SIZE);
+    oldestEntries.forEach(([key]) => messageCache.delete(key));
+  }
+};
 
 io.on('connection', (socket) => {
   console.log('Novo usuário conectado:', socket.id);
   
   // Quando um usuário se conecta
   socket.on('user connected', (userData) => {
+    if (!userData || !userData.username) return;
+    
     console.log('Dados do usuário conectado:', userData);
     
     connectedUsers.set(socket.id, {
@@ -90,7 +102,6 @@ io.on('connection', (socket) => {
     
     socket.join('Bate-papo 1');
     
-    // Emite lista atualizada de usuários
     const usersList = Array.from(connectedUsers.values()).map(user => ({
       _id: user._id,
       username: user.username,
@@ -104,6 +115,8 @@ io.on('connection', (socket) => {
 
   // Quando um usuário entra em uma sala
   socket.on('join room', (room) => {
+    if (!room) return;
+    
     console.log(`Usuário ${socket.id} entrando na sala: ${room}`);
     socket.leaveAll();
     socket.join(room);
@@ -122,29 +135,25 @@ io.on('connection', (socket) => {
       return;
     }
 
+    if (!messageData || !messageData.room || !messageData.message || !messageData.message.content) {
+      socket.emit('error', { message: 'Dados da mensagem inválidos' });
+      return;
+    }
+
     const { room, message } = messageData;
     
     // Criar ID único para a mensagem
-    const messageId = `${user._id}-${Date.now()}`;
+    const messageId = `${user._id}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
     
     // Verificar se a mensagem já está no cache
     if (messageCache.has(messageId)) {
       return;
     }
 
-    // Adicionar ao cache
-    messageCache.add(messageId);
-    
-    // Limitar tamanho do cache (manter últimas 1000 mensagens)
-    if (messageCache.size > 1000) {
-      const [firstItem] = messageCache;
-      messageCache.delete(firstItem);
-    }
-
     // Criar objeto da mensagem
     const newMessage = {
       _id: messageId,
-      content: message.content,
+      content: message.content.trim(),
       sender: {
         username: user.username,
         profileImage: user.profileImage || 'https://www.gravatar.com/avatar/00000000000000000000000000000000?d=mp&f=y'
@@ -152,6 +161,15 @@ io.on('connection', (socket) => {
       createdAt: new Date(),
       room: room
     };
+
+    // Adicionar ao cache com timestamp
+    messageCache.set(messageId, {
+      message: newMessage,
+      timestamp: Date.now()
+    });
+    
+    // Limpar cache se necessário
+    cleanMessageCache();
     
     // Emitir apenas para a sala específica
     io.to(room).emit('new message', newMessage);
