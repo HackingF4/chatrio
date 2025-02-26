@@ -122,104 +122,77 @@ const sendMessage = async (content) => {
 
 // Função para atualizar lista de usuários online
 const updateOnlineUsers = (users) => {
-    if (!users || !Array.isArray(users)) {
-        console.error('Lista de usuários inválida:', users);
-        return;
-    }
+    if (!Array.isArray(users)) return;
 
-    const userList = document.getElementById('userList');
-    const adminPanel = document.getElementById('adminPanel');
-    
-    if (!userList || !adminPanel) {
-        console.error('Elementos da interface não encontrados');
-        return;
-    }
-
-    const userListAdmin = adminPanel.querySelector('.user-list-admin');
-    if (!userListAdmin) {
-        console.error('Lista de usuários admin não encontrada');
-        return;
-    }
-    
-    // Limpar listas antigas
-    userList.innerHTML = '';
-    userListAdmin.innerHTML = '';
-
-    // Verificar se o usuário atual é admin
     const currentUser = JSON.parse(localStorage.getItem('user'));
-    if (!currentUser) {
-        console.error('Usuário atual não encontrado');
-        return;
-    }
+    if (!currentUser) return;
 
     const isAdmin = currentUser.role === 'admin';
+    const adminPanel = document.getElementById('adminPanel');
+    const userList = document.getElementById('userList');
 
-    // Mostrar/ocultar painel de admin
-    const adminPanelButton = document.getElementById('adminPanelButton');
-    if (adminPanelButton) {
-        adminPanelButton.style.display = isAdmin ? 'flex' : 'none';
+    // Limpar as listas existentes
+    if (userList) userList.innerHTML = '';
+    if (adminPanel) {
+        const userListAdmin = adminPanel.querySelector('.user-list-admin');
+        if (userListAdmin) userListAdmin.innerHTML = '';
     }
 
-    // Adicionar título da seção
-    const usersTitle = document.createElement('h3');
-    usersTitle.textContent = 'USUÁRIOS ONLINE';
-    userList.appendChild(usersTitle);
-
-    // Ordenar usuários: admins primeiro, depois por nome
+    // Ordenar usuários (admins primeiro)
     users.sort((a, b) => {
         if (a.role === 'admin' && b.role !== 'admin') return -1;
         if (a.role !== 'admin' && b.role === 'admin') return 1;
-        return a.username.localeCompare(b.username);
+        return 0;
     });
 
-    // Remover duplicatas baseado no ID
-    const uniqueUsers = users.filter((user, index, self) =>
-        index === self.findIndex((u) => u._id === user._id)
-    );
-
-    uniqueUsers.forEach(user => {
-        if (!user || !user.username) return;
-
-        // Lista normal de usuários
-        const userItem = document.createElement('div');
+    // Atualizar lista de usuários normal
+    users.forEach(user => {
+        const userItem = document.createElement('li');
         userItem.className = 'user-item';
         if (user.isMuted) userItem.classList.add('muted');
-        
-        userItem.innerHTML = `
-            <img src="${user.profileImage || 'https://www.gravatar.com/avatar/00000000000000000000000000000000?d=mp&f=y'}" 
-                 alt="Avatar" class="user-avatar">
-            <span class="username">${user.username}</span>
-            ${user.role === 'admin' ? '<span class="admin-tag">Admin</span>' : ''}
-            ${user.isMuted ? '<span class="muted-tag">Mutado</span>' : ''}
-        `;
-        userList.appendChild(userItem);
 
-        // Lista de usuários no painel de admin
-        if (isAdmin && user.username !== currentUser.username) {
-            const adminUserItem = document.createElement('div');
-            adminUserItem.className = 'user-item-admin';
-            if (user.isMuted) adminUserItem.classList.add('muted');
-            
-            adminUserItem.innerHTML = `
-                <div class="user-info">
-                    <img src="${user.profileImage || 'https://www.gravatar.com/avatar/00000000000000000000000000000000?d=mp&f=y'}" 
-                         alt="Avatar" class="avatar" style="width: 24px; height: 24px;">
-                    <span>${user.username}</span>
-                    ${user.isMuted ? '<span class="user-status status-muted">Mutado</span>' : ''}
-                    ${user.role === 'admin' ? '<span class="user-status status-admin">Admin</span>' : ''}
-                </div>
-                <div class="user-actions">
-                    ${user.role !== 'admin' ? `
-                        <button class="admin-button ${user.isMuted ? 'unmute-button' : 'mute-button'}" 
-                                onclick="window.${user.isMuted ? 'unmuteUser' : 'muteUser'}('${user._id}')">
-                            ${user.isMuted ? 'Desmutar' : 'Mutar'}
-                        </button>
-                    ` : ''}
-                </div>
-            `;
-            userListAdmin.appendChild(adminUserItem);
-        }
+        userItem.innerHTML = `
+            <img src="${user.profileImage}" alt="${user.username}" class="user-avatar">
+            ${user.username}
+            ${user.isMuted ? '<span class="muted-tag">Mutado</span>' : ''}
+            ${user.role === 'admin' ? '<span class="admin-tag">Admin</span>' : ''}
+        `;
+
+        if (userList) userList.appendChild(userItem);
     });
+
+    // Atualizar painel de admin se necessário
+    if (isAdmin && adminPanel) {
+        adminPanel.style.display = 'block';
+        const userListAdmin = adminPanel.querySelector('.user-list-admin');
+        
+        if (userListAdmin) {
+            users.forEach(user => {
+                if (user._id === currentUser.id) return; // Não mostrar o próprio admin
+
+                const userItemAdmin = document.createElement('div');
+                userItemAdmin.className = 'user-item-admin';
+                userItemAdmin.innerHTML = `
+                    <div class="user-info">
+                        <img src="${user.profileImage}" alt="${user.username}" class="user-avatar">
+                        ${user.username}
+                        ${user.role === 'admin' ? '<span class="admin-tag">Admin</span>' : ''}
+                    </div>
+                    ${user.role !== 'admin' ? `
+                        <div class="user-actions">
+                            <button class="${user.isMuted ? 'unmute-button' : 'mute-button'}" 
+                                    onclick="${user.isMuted ? 'unmuteUser' : 'muteUser'}('${user._id}')">
+                                <i class="fas fa-${user.isMuted ? 'volume-up' : 'volume-mute'}"></i>
+                            </button>
+                        </div>
+                    ` : ''}
+                `;
+                userListAdmin.appendChild(userItemAdmin);
+            });
+        }
+    } else if (adminPanel) {
+        adminPanel.style.display = 'none';
+    }
 };
 
 // Função para rolar para o final das mensagens
