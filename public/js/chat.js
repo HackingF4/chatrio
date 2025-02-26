@@ -5,7 +5,7 @@ const socket = io(window.location.hostname === 'localhost'
 
 const API_URL = window.location.hostname === 'localhost' 
     ? 'http://localhost:3000/api'
-    : 'https://web-producao-fa86.up.railway.app/api';
+    : '/api'; // Usa o proxy do Netlify
 
 // Variáveis globais
 let currentUser = null;

@@ -1,8 +1,22 @@
 [build]
-  publish = "public"
+  publish = "/"
+
+[[redirects]]
+  from = "/api/*"
+  to = "https://web-producao-fa86.up.railway.app/api/:splat"
+  status = 200
+  force = true
+  headers = {Access-Control-Allow-Origin = "*"}
 
 [[redirects]]
   from = "/*"
   to = "/index.html"
   status = 200
-  force = true 
+  force = false
+
+[[headers]]
+  for = "/*"
+    [headers.values]
+    Access-Control-Allow-Origin = "*"
+    Access-Control-Allow-Methods = "GET, POST, PUT, DELETE, OPTIONS"
+    Access-Control-Allow-Headers = "Origin, X-Requested-With, Content-Type, Accept, Authorization" 
