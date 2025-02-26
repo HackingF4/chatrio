@@ -131,8 +131,12 @@ const updateOnlineUsers = (users) => {
     const userList = document.getElementById('userList');
     const adminPanel = document.getElementById('adminPanel');
 
-    // Limpar TODA a lista de usuários
-    userList.innerHTML = '';
+    // Remover TODOS os elementos existentes
+    if (userList) {
+        while (userList.firstChild) {
+            userList.removeChild(userList.firstChild);
+        }
+    }
 
     // Remover duplicatas baseado no ID
     const uniqueUsers = users.filter((user, index, self) =>
