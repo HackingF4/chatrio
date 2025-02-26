@@ -132,11 +132,13 @@ io.on('connection', (socket) => {
         username: user.username,
         profileImage: user.profileImage || 'https://www.gravatar.com/avatar/00000000000000000000000000000000?d=mp&f=y'
       },
-      createdAt: new Date()
+      createdAt: new Date(),
+      room: room // Adicionar a sala na mensagem
     };
     
     console.log('Enviando mensagem para sala:', room, newMessage);
-    io.to(room).emit('new message', newMessage);
+    // Emitir para todos, incluindo o remetente
+    io.emit('new message', newMessage);
   });
 
   // Quando um usuário é mutado

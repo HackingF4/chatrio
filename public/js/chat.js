@@ -84,10 +84,13 @@ const setupSocketListeners = () => {
 
     socket.on('new message', (message) => {
         console.log('Nova mensagem recebida:', message);
-        const container = document.getElementById('messageContainer');
-        const messageElement = createMessageElement(message);
-        container.appendChild(messageElement);
-        scrollToBottom();
+        // Verificar se a mensagem é da sala atual
+        if (message.room === currentRoom) {
+            const container = document.getElementById('messageContainer');
+            const messageElement = createMessageElement(message);
+            container.appendChild(messageElement);
+            scrollToBottom();
+        }
     });
 
     socket.on('users online', (users) => {
