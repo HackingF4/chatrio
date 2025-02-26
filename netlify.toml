@@ -3,9 +3,21 @@
   command = "# no build command"
 
 [[redirects]]
-  from = "/chat.html"
-  to = "/batepapo.html"
+  from = "/chat"
+  to = "/batepapo"
   status = 301
+  force = true
+
+[[redirects]]
+  from = "/chat.html"
+  to = "/batepapo"
+  status = 301
+  force = true
+
+[[redirects]]
+  from = "/batepapo"
+  to = "/batepapo.html"
+  status = 200
   force = true
 
 [[redirects]]

@@ -44,7 +44,7 @@ const login = async (email, password) => {
         // Limpar qualquer cache antigo
         sessionStorage.clear();
         
-        window.location.href = '/batepapo.html';
+        window.location.href = '/batepapo';
     } catch (error) {
         console.error('Erro no login:', error);
         alert(error.message);
@@ -74,7 +74,7 @@ const register = async (username, email, password) => {
         // Limpar qualquer cache antigo
         sessionStorage.clear();
         
-        window.location.href = '/batepapo.html';
+        window.location.href = '/batepapo';
     } catch (error) {
         console.error('Erro no registro:', error);
         alert(error.message);
@@ -122,7 +122,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // Verificar autenticação na página de batepapo
-    if (window.location.pathname.includes('batepapo.html')) {
+    if (window.location.pathname.includes('batepapo')) {
         isAuthenticated();
     }
 }); 
