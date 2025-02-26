@@ -1,7 +1,7 @@
 // Configuração da API
 const API_URL = window.location.hostname === 'localhost' 
     ? 'http://localhost:3000/api'
-    : 'https://chatrio-backend.onrender.com/api';
+    : 'https://chatrio-production.up.railway.app/api';
 
 // Função para salvar o token no localStorage
 const setToken = (token) => {
