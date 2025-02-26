@@ -138,12 +138,12 @@ const updateOnlineUsers = (users) => {
         }
     }
 
-    // Remover duplicatas baseado no ID
+    // Remover duplicatas e filtrar usuários online
     const uniqueUsers = users.filter((user, index, self) =>
-        index === self.findIndex((u) => u._id === user._id)
+        index === self.findIndex((u) => u._id === user._id) && user.online !== false
     );
 
-    // Ordenar usuários (admins primeiro)
+    // Ordenar usuários (admins primeiro, depois por nome)
     uniqueUsers.sort((a, b) => {
         if (a.role === 'admin' && b.role !== 'admin') return -1;
         if (a.role !== 'admin' && b.role === 'admin') return 1;
@@ -161,6 +161,7 @@ const updateOnlineUsers = (users) => {
             ${user.username}
             ${user.isMuted ? '<span class="muted-tag">Mutado</span>' : ''}
             ${user.role === 'admin' ? '<span class="admin-tag">Admin</span>' : ''}
+            <span class="online-status"></span>
         `;
 
         userList.appendChild(userItem);
@@ -643,6 +644,18 @@ socket.on('connect', () => {
         
         // Carregar mensagens
         loadMessages(currentRoom);
+
+        // Atualizar lista de usuários a cada 5 segundos
+        const updateInterval = setInterval(() => {
+            if (socket.connected) {
+                socket.emit('get users');
+            }
+        }, 5000);
+
+        // Limpar intervalo quando desconectar
+        socket.on('disconnect', () => {
+            clearInterval(updateInterval);
+        });
     }
 });
 
@@ -698,4 +711,15 @@ socket.on('user unmuted', (data) => {
     console.log(`Usuário ${data.username} foi desmutado`);
     // Recarregar lista de usuários
     socket.emit('get users');
+});
+
+// Eventos de usuário conectado/desconectado
+socket.on('user joined', (user) => {
+    console.log(`${user.username} entrou no chat`);
+    socket.emit('get users'); // Atualizar lista de usuários
+});
+
+socket.on('user left', (user) => {
+    console.log(`${user.username} saiu do chat`);
+    socket.emit('get users'); // Atualizar lista de usuários
 }); 

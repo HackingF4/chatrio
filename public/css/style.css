@@ -684,8 +684,21 @@ body:not(.light-theme) emoji-picker {
     display: flex;
     align-items: center;
     padding: 8px;
-    border-bottom: 1px solid #eee;
-    gap: 10px;
+    margin: 4px 0;
+    border-radius: 4px;
+    position: relative;
+}
+
+.online-status {
+    width: 10px;
+    height: 10px;
+    background-color: #2ecc71;
+    border-radius: 50%;
+    position: absolute;
+    right: 10px;
+    top: 50%;
+    transform: translateY(-50%);
+    border: 2px solid var(--background-color);
 }
 
 .user-item.muted {
