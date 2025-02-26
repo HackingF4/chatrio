@@ -11,7 +11,7 @@ const server = http.createServer(app);
 
 // Configuração do CORS para produção
 const corsOptions = {
-  origin: true, // Reflect the request origin
+  origin: ['https://chatrioo.netlify.app', 'http://localhost:3000'],
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept'],
@@ -31,7 +31,7 @@ app.use((req, res, next) => {
   
   // Interceptar requisições OPTIONS
   if (req.method === 'OPTIONS') {
-    return res.status(200).end();
+    return res.status(204).end();
   }
   next();
 });
