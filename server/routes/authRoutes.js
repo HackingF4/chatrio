@@ -4,6 +4,7 @@ const authController = require('../controllers/authController');
 const auth = require('../middleware/auth');
 
 // Rotas públicas
+router.get('/health', (req, res) => res.status(200).json({ status: 'ok' }));
 router.post('/register', authController.register);
 router.post('/login', authController.login);
 router.get('/setup-admin', authController.setupInitialAdmin);
