@@ -122,28 +122,32 @@ const sendMessage = async (content) => {
 
 // Função para atualizar lista de usuários online
 const updateOnlineUsers = (users) => {
-    if (!Array.isArray(users)) return;
+    if (!Array.isArray(users)) {
+        console.log('Lista de usuários inválida:', users);
+        return;
+    }
 
     const currentUser = JSON.parse(localStorage.getItem('user'));
-    if (!currentUser) return;
+    if (!currentUser) {
+        console.log('Usuário atual não encontrado');
+        return;
+    }
 
     const isAdmin = currentUser.role === 'admin';
     const userList = document.getElementById('userList');
     const adminPanel = document.getElementById('adminPanel');
 
-    // Remover TODOS os elementos existentes
+    // Limpar lista de usuários
     if (userList) {
-        while (userList.firstChild) {
-            userList.removeChild(userList.firstChild);
-        }
+        userList.innerHTML = '';
     }
 
-    // Remover duplicatas e filtrar usuários online
+    // Remover duplicatas e garantir que todos estão online
     const uniqueUsers = users.filter((user, index, self) =>
-        index === self.findIndex((u) => u._id === user._id) && user.online !== false
+        index === self.findIndex((u) => u._id === user._id)
     );
 
-    // Ordenar usuários (admins primeiro, depois por nome)
+    // Ordenar usuários (admins primeiro)
     uniqueUsers.sort((a, b) => {
         if (a.role === 'admin' && b.role !== 'admin') return -1;
         if (a.role !== 'admin' && b.role === 'admin') return 1;
@@ -157,8 +161,10 @@ const updateOnlineUsers = (users) => {
         if (user.isMuted) userItem.classList.add('muted');
 
         userItem.innerHTML = `
-            <img src="${user.profileImage}" alt="${user.username}" class="user-avatar">
-            ${user.username}
+            <img src="${user.profileImage || 'https://www.gravatar.com/avatar/00000000000000000000000000000000?d=mp&f=y'}" 
+                 alt="${user.username}" 
+                 class="user-avatar">
+            <span class="username">${user.username}</span>
             ${user.isMuted ? '<span class="muted-tag">Mutado</span>' : ''}
             ${user.role === 'admin' ? '<span class="admin-tag">Admin</span>' : ''}
             <span class="online-status"></span>
@@ -171,17 +177,19 @@ const updateOnlineUsers = (users) => {
     if (isAdmin && adminPanel) {
         const userListAdmin = adminPanel.querySelector('.user-list-admin');
         if (userListAdmin) {
-            userListAdmin.innerHTML = ''; // Limpar lista admin
+            userListAdmin.innerHTML = '';
             
             uniqueUsers.forEach(user => {
-                if (user._id === currentUser.id) return; // Não mostrar o próprio admin
+                if (user._id === currentUser.id) return;
 
                 const userItemAdmin = document.createElement('div');
                 userItemAdmin.className = 'user-item-admin';
                 userItemAdmin.innerHTML = `
                     <div class="user-info">
-                        <img src="${user.profileImage}" alt="${user.username}" class="user-avatar">
-                        ${user.username}
+                        <img src="${user.profileImage || 'https://www.gravatar.com/avatar/00000000000000000000000000000000?d=mp&f=y'}" 
+                             alt="${user.username}" 
+                             class="user-avatar">
+                        <span class="username">${user.username}</span>
                         ${user.role === 'admin' ? '<span class="admin-tag">Admin</span>' : ''}
                     </div>
                     ${user.role !== 'admin' ? `
@@ -197,8 +205,6 @@ const updateOnlineUsers = (users) => {
             });
         }
         adminPanel.style.display = 'block';
-    } else if (adminPanel) {
-        adminPanel.style.display = 'none';
     }
 };
 
@@ -622,7 +628,6 @@ document.addEventListener('DOMContentLoaded', () => {
 socket.on('connect', () => {
     console.log('Conectado ao servidor Socket.io');
     
-    // Carregar usuário atual do localStorage
     const storedUser = localStorage.getItem('user');
     if (storedUser) {
         currentUser = JSON.parse(storedUser);
@@ -631,31 +636,21 @@ socket.on('connect', () => {
         socket.emit('user connected', {
             id: currentUser.id,
             username: currentUser.username,
-            profileImage: currentUser.profileImage || 'https://www.gravatar.com/avatar/00000000000000000000000000000000?d=mp&f=y',
+            profileImage: currentUser.profileImage,
             role: currentUser.role,
             isMuted: currentUser.isMuted
         });
 
-        // Entrar na sala atual
+        // Entrar na sala e solicitar lista de usuários
         socket.emit('join room', currentRoom);
-        
-        // Solicitar lista de usuários
         socket.emit('get users');
         
-        // Carregar mensagens
-        loadMessages(currentRoom);
-
-        // Atualizar lista de usuários a cada 5 segundos
-        const updateInterval = setInterval(() => {
+        // Atualizar lista a cada 3 segundos
+        setInterval(() => {
             if (socket.connected) {
                 socket.emit('get users');
             }
-        }, 5000);
-
-        // Limpar intervalo quando desconectar
-        socket.on('disconnect', () => {
-            clearInterval(updateInterval);
-        });
+        }, 3000);
     }
 });
 
@@ -690,6 +685,7 @@ socket.on('new message', (message) => {
 });
 
 socket.on('users online', (users) => {
+    console.log('Usuários online recebidos:', users);
     updateOnlineUsers(users);
 });
 
@@ -715,11 +711,11 @@ socket.on('user unmuted', (data) => {
 
 // Eventos de usuário conectado/desconectado
 socket.on('user joined', (user) => {
-    console.log(`${user.username} entrou no chat`);
-    socket.emit('get users'); // Atualizar lista de usuários
+    console.log('Usuário entrou:', user);
+    socket.emit('get users');
 });
 
 socket.on('user left', (user) => {
-    console.log(`${user.username} saiu do chat`);
-    socket.emit('get users'); // Atualizar lista de usuários
+    console.log('Usuário saiu:', user);
+    socket.emit('get users');
 }); 

@@ -687,18 +687,55 @@ body:not(.light-theme) emoji-picker {
     margin: 4px 0;
     border-radius: 4px;
     position: relative;
+    background-color: var(--background-darker);
+    transition: background-color 0.2s;
+}
+
+.user-item:hover {
+    background-color: var(--background-dark);
+}
+
+.user-item .username {
+    margin-left: 10px;
+    flex: 1;
 }
 
 .online-status {
-    width: 10px;
-    height: 10px;
+    width: 8px;
+    height: 8px;
     background-color: #2ecc71;
     border-radius: 50%;
     position: absolute;
-    right: 10px;
+    right: 8px;
     top: 50%;
     transform: translateY(-50%);
-    border: 2px solid var(--background-color);
+    border: 2px solid var(--background-darker);
+    box-shadow: 0 0 0 2px var(--background-darker);
+}
+
+.user-avatar {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 2px solid var(--primary-color);
+}
+
+.muted-tag, .admin-tag {
+    font-size: 10px;
+    padding: 2px 4px;
+    border-radius: 3px;
+    margin-left: 5px;
+}
+
+.muted-tag {
+    background-color: var(--danger-color);
+    color: white;
+}
+
+.admin-tag {
+    background-color: var(--primary-color);
+    color: white;
 }
 
 .user-item.muted {
@@ -742,13 +779,6 @@ body:not(.light-theme) emoji-picker {
 
 .user-item.muted .mute-button:hover {
     background-color: #00cc00;
-}
-
-.user-avatar {
-    width: 32px;
-    height: 32px;
-    border-radius: 50%;
-    object-fit: cover;
 }
 
 .username {
