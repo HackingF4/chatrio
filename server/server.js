@@ -142,7 +142,14 @@ io.on('connection', (socket) => {
 
 // Conexão com MongoDB
 mongoose.set('strictQuery', false);
-mongoose.connect(process.env.MONGODB_URI, {
+
+// Log para debug
+console.log('Tentando conectar ao MongoDB com URI:', process.env.MONGODB_URI);
+
+// URI de fallback para desenvolvimento
+const MONGODB_URI = process.env.MONGODB_URI || 'mongodb+srv://jisogomes333:khAvapesqxhWDxxt@cluster0.olcsf.mongodb.net/chat-app?retryWrites=true&w=majority';
+
+mongoose.connect(MONGODB_URI, {
   useNewUrlParser: true,
   useUnifiedTopology: true,
   serverSelectionTimeoutMS: 5000,
