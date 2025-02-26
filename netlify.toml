@@ -4,13 +4,13 @@
 
 [[redirects]]
   from = "/chat"
-  to = "/batepapo"
+  to = "/batepapo.html"
   status = 301
   force = true
 
 [[redirects]]
   from = "/chat.html"
-  to = "/batepapo"
+  to = "/batepapo.html"
   status = 301
   force = true
 
