@@ -128,25 +128,26 @@ const updateOnlineUsers = (users) => {
     if (!currentUser) return;
 
     const isAdmin = currentUser.role === 'admin';
-    const adminPanel = document.getElementById('adminPanel');
     const userList = document.getElementById('userList');
+    const adminPanel = document.getElementById('adminPanel');
 
-    // Limpar as listas existentes
-    if (userList) userList.innerHTML = '';
-    if (adminPanel) {
-        const userListAdmin = adminPanel.querySelector('.user-list-admin');
-        if (userListAdmin) userListAdmin.innerHTML = '';
-    }
+    // Limpar TODA a lista de usuários
+    userList.innerHTML = '';
+
+    // Remover duplicatas baseado no ID
+    const uniqueUsers = users.filter((user, index, self) =>
+        index === self.findIndex((u) => u._id === user._id)
+    );
 
     // Ordenar usuários (admins primeiro)
-    users.sort((a, b) => {
+    uniqueUsers.sort((a, b) => {
         if (a.role === 'admin' && b.role !== 'admin') return -1;
         if (a.role !== 'admin' && b.role === 'admin') return 1;
-        return 0;
+        return a.username.localeCompare(b.username);
     });
 
     // Atualizar lista de usuários normal
-    users.forEach(user => {
+    uniqueUsers.forEach(user => {
         const userItem = document.createElement('li');
         userItem.className = 'user-item';
         if (user.isMuted) userItem.classList.add('muted');
@@ -158,16 +159,16 @@ const updateOnlineUsers = (users) => {
             ${user.role === 'admin' ? '<span class="admin-tag">Admin</span>' : ''}
         `;
 
-        if (userList) userList.appendChild(userItem);
+        userList.appendChild(userItem);
     });
 
-    // Atualizar painel de admin se necessário
+    // Atualizar painel de admin
     if (isAdmin && adminPanel) {
-        adminPanel.style.display = 'block';
         const userListAdmin = adminPanel.querySelector('.user-list-admin');
-        
         if (userListAdmin) {
-            users.forEach(user => {
+            userListAdmin.innerHTML = ''; // Limpar lista admin
+            
+            uniqueUsers.forEach(user => {
                 if (user._id === currentUser.id) return; // Não mostrar o próprio admin
 
                 const userItemAdmin = document.createElement('div');
@@ -190,6 +191,7 @@ const updateOnlineUsers = (users) => {
                 userListAdmin.appendChild(userItemAdmin);
             });
         }
+        adminPanel.style.display = 'block';
     } else if (adminPanel) {
         adminPanel.style.display = 'none';
     }
