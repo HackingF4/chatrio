@@ -85,7 +85,7 @@ io.on('connection', (socket) => {
       role: userData.role || 'user'
     });
     
-    socket.join('geral');
+    socket.join('Bate-papo 1');
     
     // Emite lista atualizada de usuários
     const usersList = Array.from(connectedUsers.values()).map(user => ({
@@ -101,6 +101,7 @@ io.on('connection', (socket) => {
 
   // Quando um usuário entra em uma sala
   socket.on('join room', (room) => {
+    console.log(`Usuário ${socket.id} entrando na sala: ${room}`);
     socket.leaveAll();
     socket.join(room);
     console.log(`Usuário ${socket.id} entrou na sala: ${room}`);
@@ -108,8 +109,13 @@ io.on('connection', (socket) => {
 
   // Quando uma mensagem é enviada
   socket.on('chat message', (messageData) => {
+    console.log('Mensagem recebida:', messageData);
+    
     const user = connectedUsers.get(socket.id);
-    if (!user) return;
+    if (!user) {
+      console.log('Usuário não encontrado:', socket.id);
+      return;
+    }
 
     // Verificar se o usuário está mutado
     if (user.isMuted) {
@@ -120,14 +126,17 @@ io.on('connection', (socket) => {
     const { room, message } = messageData;
     
     // Emitir a mensagem para todos os usuários na sala
-    io.to(room).emit('new message', {
+    const newMessage = {
       content: message.content,
       sender: {
         username: user.username,
         profileImage: user.profileImage || 'https://www.gravatar.com/avatar/00000000000000000000000000000000?d=mp&f=y'
       },
       createdAt: new Date()
-    });
+    };
+    
+    console.log('Enviando mensagem para sala:', room, newMessage);
+    io.to(room).emit('new message', newMessage);
   });
 
   // Quando um usuário é mutado

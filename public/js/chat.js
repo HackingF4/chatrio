@@ -9,7 +9,7 @@ const API_URL = window.location.hostname === 'localhost'
 
 let socket;
 let currentUser;
-let currentRoom = 'geral';
+let currentRoom = 'Bate-papo 1';
 let darkMode = localStorage.getItem('darkMode') === 'true';
 
 // Verificar autenticação ao carregar a página
@@ -82,12 +82,23 @@ const setupSocketListeners = () => {
         }, 1000);
     });
 
-    socket.on('users online', updateOnlineUsers);
-    socket.on('new message', handleNewMessage);
-    socket.on('user muted', handleUserMuted);
-    socket.on('user unmuted', handleUserUnmuted);
-    socket.on('chat cleared', handleChatCleared);
-    socket.on('error', handleError);
+    socket.on('new message', (message) => {
+        console.log('Nova mensagem recebida:', message);
+        const container = document.getElementById('messageContainer');
+        const messageElement = createMessageElement(message);
+        container.appendChild(messageElement);
+        scrollToBottom();
+    });
+
+    socket.on('users online', (users) => {
+        console.log('Usuários online:', users);
+        updateOnlineUsers(users);
+    });
+
+    socket.on('error', (error) => {
+        console.error('Erro:', error);
+        alert(error.message);
+    });
 };
 
 // Função para lidar com novas mensagens
@@ -143,12 +154,6 @@ const handleUserUnmuted = (data) => {
 const handleChatCleared = () => {
     const container = document.getElementById('messageContainer');
     container.innerHTML = '';
-};
-
-// Função para lidar com erros
-const handleError = (error) => {
-    console.error('Erro:', error);
-    alert(error.message);
 };
 
 // Função para obter o token
@@ -332,7 +337,7 @@ const sendMessage = (text) => {
         }
     };
 
-    // Emitir a mensagem para o servidor
+    console.log('Enviando mensagem:', messageData);
     socket.emit('chat message', messageData);
 
     // Limpar o campo de mensagem
@@ -634,10 +639,29 @@ window.clearChat = async function() {
 
 // Event Listeners
 document.addEventListener('DOMContentLoaded', () => {
-    // Inicializar Socket.IO e verificar autenticação
-    initializeSocket();
+    // Carregar usuário atual
+    const savedUser = localStorage.getItem('user');
+    if (!savedUser) {
+        window.location.href = '/';
+        return;
+    }
+
+    currentUser = JSON.parse(savedUser);
     
-    if (!currentUser) return;
+    // Inicializar Socket.IO
+    initializeSocket();
+
+    // Configurar formulário de mensagem
+    const messageForm = document.getElementById('messageForm');
+    if (messageForm) {
+        messageForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            const messageInput = document.getElementById('messageInput');
+            if (messageInput) {
+                sendMessage(messageInput.value);
+            }
+        });
+    }
 
     // Configurar tema
     document.body.classList.toggle('light-theme', !darkMode);
@@ -654,18 +678,6 @@ document.addEventListener('DOMContentLoaded', () => {
     
     // Atualizar lista de usuários periodicamente
     startUserListUpdates();
-
-    // Adicionar event listener para o formulário de mensagem
-    const messageForm = document.getElementById('messageForm');
-    if (messageForm) {
-        messageForm.addEventListener('submit', (e) => {
-            e.preventDefault();
-            const messageInput = document.getElementById('messageInput');
-            if (messageInput) {
-                sendMessage(messageInput.value);
-            }
-        });
-    }
 });
 
 // Configurar interface do usuário
