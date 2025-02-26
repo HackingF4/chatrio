@@ -1,7 +1,7 @@
 // Configuração da API
 const API_URL = window.location.hostname === 'localhost' 
     ? 'http://localhost:3000/api'
-    : '/api'; // Usa o proxy do Netlify
+    : 'https://web-production-fa86.up.railway.app/api';
 
 // Função para verificar se o token é válido
 const verifyToken = async (token) => {
@@ -14,37 +14,60 @@ const verifyToken = async (token) => {
             }
         });
 
-        return response.ok;
+        if (!response.ok) {
+            throw new Error('Token inválido');
+        }
+
+        const data = await response.json();
+        return { valid: true, user: data.user };
     } catch (error) {
         console.error('Erro ao verificar token:', error);
-        return false;
+        return { valid: false };
     }
 };
 
 // Função para verificar autenticação
 const checkAuthentication = async () => {
     const token = localStorage.getItem('token');
-    const user = localStorage.getItem('user');
+    const savedUser = localStorage.getItem('user');
 
-    if (token && user) {
+    if (token && savedUser) {
         try {
             // Verificar se o token é válido
-            const isValid = await verifyToken(token);
+            const { valid, user } = await verifyToken(token);
             
-            if (isValid) {
-                // Se estiver na página de login, redirecionar para o chat
-                if (window.location.pathname === '/' || window.location.pathname === '/index.html') {
+            if (valid) {
+                // Atualizar dados do usuário se necessário
+                const currentUser = JSON.parse(savedUser);
+                if (user && JSON.stringify(user) !== JSON.stringify(currentUser)) {
+                    localStorage.setItem('user', JSON.stringify(user));
+                }
+
+                // Se estiver na página de login ou index, redirecionar para o chat
+                const path = window.location.pathname;
+                if (path === '/' || path === '/index.html' || path.includes('login')) {
                     window.location.href = '/chat.html';
                     return true;
                 }
+                return true;
             } else {
-                // Se o token não for válido, limpar dados
+                // Se o token não for válido, limpar dados e redirecionar
                 localStorage.removeItem('token');
                 localStorage.removeItem('user');
+                sessionStorage.clear();
+                if (window.location.pathname.includes('chat.html')) {
+                    window.location.href = '/';
+                }
             }
         } catch (error) {
             console.error('Erro ao verificar autenticação:', error);
+            if (window.location.pathname.includes('chat.html')) {
+                window.location.href = '/';
+            }
         }
+    } else if (window.location.pathname.includes('chat.html')) {
+        // Se não tiver token e estiver na página do chat, redirecionar para login
+        window.location.href = '/';
     }
     return false;
 };
@@ -78,8 +101,13 @@ const login = async (email, password) => {
 
         setToken(data.token);
         localStorage.setItem('user', JSON.stringify(data.user));
+        
+        // Limpar qualquer cache antigo
+        sessionStorage.clear();
+        
         window.location.href = '/chat.html';
     } catch (error) {
+        console.error('Erro no login:', error);
         alert(error.message);
     }
 };
@@ -103,8 +131,13 @@ const register = async (username, email, password) => {
 
         setToken(data.token);
         localStorage.setItem('user', JSON.stringify(data.user));
+        
+        // Limpar qualquer cache antigo
+        sessionStorage.clear();
+        
         window.location.href = '/chat.html';
     } catch (error) {
+        console.error('Erro no registro:', error);
         alert(error.message);
     }
 };
@@ -113,43 +146,47 @@ const register = async (username, email, password) => {
 const logout = () => {
     localStorage.removeItem('token');
     localStorage.removeItem('user');
-    sessionStorage.clear(); // Limpar cache de mensagens
+    sessionStorage.clear();
     window.location.href = '/';
 };
 
 // Event Listeners
 document.addEventListener('DOMContentLoaded', async () => {
-    // Verificar autenticação primeiro
-    await checkAuthentication();
+    try {
+        // Verificar autenticação primeiro
+        await checkAuthentication();
 
-    const loginForm = document.getElementById('loginForm');
-    const registerForm = document.getElementById('registerForm');
+        const loginForm = document.getElementById('loginForm');
+        const registerForm = document.getElementById('registerForm');
 
-    // Formulário de Login
-    if (loginForm) {
-        loginForm.addEventListener('submit', (e) => {
-            e.preventDefault();
-            const email = document.getElementById('email').value;
-            const password = document.getElementById('password').value;
-            login(email, password);
-        });
-    }
+        // Formulário de Login
+        if (loginForm) {
+            loginForm.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const email = document.getElementById('email').value;
+                const password = document.getElementById('password').value;
+                await login(email, password);
+            });
+        }
 
-    // Formulário de Registro
-    if (registerForm) {
-        registerForm.addEventListener('submit', (e) => {
-            e.preventDefault();
-            const username = document.getElementById('username').value;
-            const email = document.getElementById('email').value;
-            const password = document.getElementById('password').value;
-            const confirmPassword = document.getElementById('confirmPassword').value;
+        // Formulário de Registro
+        if (registerForm) {
+            registerForm.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const username = document.getElementById('username').value;
+                const email = document.getElementById('email').value;
+                const password = document.getElementById('password').value;
+                const confirmPassword = document.getElementById('confirmPassword').value;
 
-            if (password !== confirmPassword) {
-                alert('As senhas não coincidem');
-                return;
-            }
+                if (password !== confirmPassword) {
+                    alert('As senhas não coincidem');
+                    return;
+                }
 
-            register(username, email, password);
-        });
+                await register(username, email, password);
+            });
+        }
+    } catch (error) {
+        console.error('Erro na inicialização:', error);
     }
 }); 

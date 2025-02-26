@@ -1,7 +1,11 @@
-// Configuração do Socket.IO
+// Configuração do Socket.IO e API
 const SOCKET_URL = window.location.hostname === 'localhost' 
     ? 'http://localhost:3000'
     : 'https://web-production-fa86.up.railway.app';
+
+const API_URL = window.location.hostname === 'localhost' 
+    ? 'http://localhost:3000/api'
+    : 'https://web-production-fa86.up.railway.app/api';
 
 let socket;
 let currentUser;
@@ -37,11 +41,12 @@ const initializeSocket = () => {
         auth: {
             token: getToken()
         },
-        transports: ['websocket'],
-        upgrade: false,
+        transports: ['websocket', 'polling'],
+        upgrade: true,
         reconnection: true,
-        reconnectionAttempts: 5,
-        reconnectionDelay: 1000
+        reconnectionAttempts: Infinity,
+        reconnectionDelay: 1000,
+        timeout: 20000
     });
 
     setupSocketListeners();
@@ -65,6 +70,10 @@ const setupSocketListeners = () => {
 
     socket.on('disconnect', () => {
         console.log('Desconectado do servidor');
+    });
+
+    socket.on('connect_error', (error) => {
+        console.error('Erro de conexão:', error);
     });
 
     socket.on('users online', updateOnlineUsers);
@@ -169,7 +178,7 @@ const logout = () => {
     window.location.href = '/';
 };
 
-// Função para carregar mensagens com cache
+// Função para carregar mensagens com cache e retry
 const loadMessages = async (room = currentRoom) => {
     try {
         // Tentar carregar do cache primeiro
@@ -178,23 +187,41 @@ const loadMessages = async (room = currentRoom) => {
             displayMessages(JSON.parse(cachedMessages));
         }
 
-        // Fazer requisição ao servidor
-        const response = await fetch(`${API_URL}/chat/messages?room=${room}`, {
-            headers: {
-                'Authorization': `Bearer ${getToken()}`
+        // Fazer requisição ao servidor com retry
+        const maxRetries = 3;
+        let attempt = 0;
+        let success = false;
+
+        while (!success && attempt < maxRetries) {
+            try {
+                const response = await fetch(`${API_URL}/chat/messages?room=${room}`, {
+                    headers: {
+                        'Authorization': `Bearer ${getToken()}`
+                    }
+                });
+
+                if (!response.ok) {
+                    throw new Error('Erro ao carregar mensagens');
+                }
+
+                const messages = await response.json();
+                
+                // Atualizar cache
+                sessionStorage.setItem(`messages_${room}`, JSON.stringify(messages));
+                
+                // Exibir mensagens apenas se forem diferentes das que estão em cache
+                if (!cachedMessages || JSON.stringify(messages) !== cachedMessages) {
+                    displayMessages(messages);
+                }
+
+                success = true;
+            } catch (error) {
+                attempt++;
+                if (attempt === maxRetries) {
+                    throw error;
+                }
+                await new Promise(resolve => setTimeout(resolve, 1000 * attempt));
             }
-        });
-
-        if (!response.ok) throw new Error('Erro ao carregar mensagens');
-
-        const messages = await response.json();
-        
-        // Atualizar cache
-        sessionStorage.setItem(`messages_${room}`, JSON.stringify(messages));
-        
-        // Exibir mensagens apenas se forem diferentes das que estão em cache
-        if (!cachedMessages || JSON.stringify(messages) !== cachedMessages) {
-            displayMessages(messages);
         }
     } catch (error) {
         console.error('Erro:', error);
@@ -203,7 +230,14 @@ const loadMessages = async (room = currentRoom) => {
         if (cachedMessages) {
             displayMessages(JSON.parse(cachedMessages));
         } else {
-            alert('Erro ao carregar mensagens');
+            const container = document.getElementById('messageContainer');
+            if (container) {
+                container.innerHTML = '<div class="system-message"><div class="message-content"><div class="message-text"><i class="fas fa-exclamation-circle"></i> Erro ao carregar mensagens. Tentando reconectar...</div></div></div>';
+            }
+            // Tentar reconectar ao Socket.IO
+            if (socket) {
+                socket.connect();
+            }
         }
     }
 };
