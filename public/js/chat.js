@@ -41,8 +41,8 @@ const initializeSocket = () => {
         auth: {
             token: getToken()
         },
-        transports: ['websocket', 'polling'],
-        upgrade: true,
+        transports: ['websocket'],
+        upgrade: false,
         reconnection: true,
         reconnectionAttempts: Infinity,
         reconnectionDelay: 1000,
@@ -70,10 +70,16 @@ const setupSocketListeners = () => {
 
     socket.on('disconnect', () => {
         console.log('Desconectado do servidor');
+        setTimeout(() => {
+            socket.connect();
+        }, 1000);
     });
 
     socket.on('connect_error', (error) => {
         console.error('Erro de conexão:', error);
+        setTimeout(() => {
+            socket.connect();
+        }, 1000);
     });
 
     socket.on('users online', updateOnlineUsers);
@@ -87,9 +93,34 @@ const setupSocketListeners = () => {
 // Função para lidar com novas mensagens
 const handleNewMessage = (message) => {
     const container = document.getElementById('messageContainer');
-    const messageElement = createMessageElement(message);
+    if (!container) return;
+
+    const messageElement = document.createElement('div');
+    messageElement.className = 'message';
+    
+    const isCurrentUser = currentUser && message.sender.username === currentUser.username;
+    if (isCurrentUser) {
+        messageElement.classList.add('message-own');
+    }
+
+    messageElement.innerHTML = `
+        <img src="${message.sender.profileImage || 'https://www.gravatar.com/avatar/00000000000000000000000000000000?d=mp&f=y'}" alt="Avatar" class="avatar">
+        <div class="message-content">
+            <div class="message-header">
+                <span class="username">${message.sender.username}</span>
+                <span class="timestamp">${formatDate(message.createdAt)}</span>
+            </div>
+            <div class="message-text">${message.content}</div>
+        </div>
+    `;
+
     container.appendChild(messageElement);
     scrollToBottom();
+
+    // Notificar se a mensagem não for do usuário atual
+    if (message.userId !== currentUser.id) {
+        notifyNewMessage(message);
+    }
 };
 
 // Função para lidar com usuário mutado
@@ -280,37 +311,35 @@ const createMessageElement = (message) => {
 };
 
 // Função para enviar mensagem
-const sendMessage = async (content) => {
-    try {
-        // Verificar se o usuário está mutado
-        const currentUser = JSON.parse(localStorage.getItem('user'));
-        if (currentUser.isMuted) {
-            alert('Você está mutado e não pode enviar mensagens.');
-            return;
-        }
+const sendMessage = (text) => {
+    if (!socket || !socket.connected) {
+        console.log('Socket não conectado. Tentando reconectar...');
+        socket.connect();
+        return;
+    }
 
-        const response = await fetch(`${API_URL}/chat/messages`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${getToken()}`
+    if (!text.trim()) return;
+
+    const messageData = {
+        room: currentRoom,
+        message: {
+            content: text,
+            sender: {
+                username: currentUser.username,
+                profileImage: currentUser.profileImage || 'https://www.gravatar.com/avatar/00000000000000000000000000000000?d=mp&f=y'
             },
-            body: JSON.stringify({ content, room: currentRoom })
-        });
-
-        if (!response.ok) {
-            const data = await response.json();
-            throw new Error(data.message || 'Erro ao enviar mensagem');
+            createdAt: new Date()
         }
+    };
 
-        // Limpar o input e manter o foco
-        const messageInput = document.getElementById('messageInput');
+    // Emitir a mensagem para o servidor
+    socket.emit('chat message', messageData);
+
+    // Limpar o campo de mensagem
+    const messageInput = document.getElementById('messageInput');
+    if (messageInput) {
         messageInput.value = '';
         messageInput.focus();
-
-    } catch (error) {
-        console.error('Erro:', error);
-        alert(error.message);
     }
 };
 
@@ -625,6 +654,18 @@ document.addEventListener('DOMContentLoaded', () => {
     
     // Atualizar lista de usuários periodicamente
     startUserListUpdates();
+
+    // Adicionar event listener para o formulário de mensagem
+    const messageForm = document.getElementById('messageForm');
+    if (messageForm) {
+        messageForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            const messageInput = document.getElementById('messageInput');
+            if (messageInput) {
+                sendMessage(messageInput.value);
+            }
+        });
+    }
 });
 
 // Configurar interface do usuário
@@ -650,18 +691,6 @@ const setupUserInterface = () => {
 
 // Configurar event listeners
 const setupEventListeners = () => {
-    // Event listener para envio de mensagem
-    const messageForm = document.getElementById('messageForm');
-    const messageInput = document.getElementById('messageInput');
-
-    messageForm?.addEventListener('submit', (e) => {
-        e.preventDefault();
-        const content = messageInput.value.trim();
-        if (content) {
-            sendMessage(content);
-        }
-    });
-
     // Event listener para logout
     document.getElementById('logoutButton')?.addEventListener('click', () => {
         const confirmLogout = confirm('Tem certeza que deseja sair?');

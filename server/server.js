@@ -118,8 +118,16 @@ io.on('connection', (socket) => {
     }
 
     const { room, message } = messageData;
+    
     // Emitir a mensagem para todos os usuários na sala
-    io.to(room).emit('new message', message);
+    io.to(room).emit('new message', {
+      content: message.content,
+      sender: {
+        username: user.username,
+        profileImage: user.profileImage || 'https://www.gravatar.com/avatar/00000000000000000000000000000000?d=mp&f=y'
+      },
+      createdAt: new Date()
+    });
   });
 
   // Quando um usuário é mutado
