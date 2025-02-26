@@ -1,11 +1,11 @@
 // Configuração do Socket.io e API
+const socket = io(window.location.hostname === 'localhost' 
+    ? 'http://localhost:3000'
+    : 'https://web-producao-fa86.up.railway.app');
+
 const API_URL = window.location.hostname === 'localhost' 
     ? 'http://localhost:3000/api'
-    : 'https://chatrio-production.up.railway.app/api';
-
-const socket = io(window.location.hostname === 'localhost'
-    ? 'http://localhost:3000'
-    : 'https://chatrio-production.up.railway.app');
+    : 'https://web-producao-fa86.up.railway.app/api';
 
 // Variáveis globais
 let currentUser = null;
