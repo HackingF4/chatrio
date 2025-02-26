@@ -3,7 +3,10 @@ const socket = io(window.location.hostname === 'localhost'
     ? 'http://localhost:3000'
     : 'https://web-production-fa86.up.railway.app', {
     withCredentials: true,
-    transports: ['websocket', 'polling']
+    transports: ['websocket', 'polling'],
+    reconnection: true,
+    reconnectionAttempts: 5,
+    reconnectionDelay: 1000
 });
 
 const API_URL = window.location.hostname === 'localhost' 
@@ -436,6 +439,9 @@ document.addEventListener('DOMContentLoaded', () => {
         isMuted: currentUser.isMuted
     });
 
+    // Solicitar lista de usuários ao carregar
+    socket.emit('get users');
+
     // Atualizar informações do usuário
     document.getElementById('username').textContent = currentUser.username;
     document.getElementById('userAvatar').src = currentUser.profileImage || 'https://www.gravatar.com/avatar/00000000000000000000000000000000?d=mp&f=y';
@@ -566,44 +572,47 @@ document.addEventListener('DOMContentLoaded', () => {
 // Socket.io event listeners
 socket.on('connect', () => {
     console.log('Conectado ao servidor Socket.io');
+    
+    // Reconectar à sala atual e solicitar lista de usuários
     socket.emit('join room', currentRoom);
+    socket.emit('get users');
+    
+    // Recarregar mensagens ao reconectar
+    loadMessages(currentRoom);
+});
+
+socket.on('disconnect', () => {
+    console.log('Desconectado do servidor Socket.io');
+});
+
+socket.on('reconnect', () => {
+    console.log('Reconectado ao servidor Socket.io');
+    
+    // Reconectar à sala e atualizar dados
+    if (currentUser) {
+        socket.emit('user connected', {
+            id: currentUser.id,
+            username: currentUser.username,
+            profileImage: currentUser.profileImage,
+            role: currentUser.role,
+            isMuted: currentUser.isMuted
+        });
+        socket.emit('join room', currentRoom);
+        socket.emit('get users');
+    }
 });
 
 socket.on('new message', (message) => {
     if (message.room === currentRoom) {
-        // Verificar se a mensagem já existe
-        const existingMessage = document.querySelector(`[data-message-id="${message._id}"]`);
-        if (!existingMessage) {
-            const container = document.getElementById('messageContainer');
-            const messageElement = createMessageElement(message);
-            container.appendChild(messageElement);
-            scrollToBottom();
-        }
+        const container = document.getElementById('messageContainer');
+        const messageElement = createMessageElement(message);
+        container.appendChild(messageElement);
+        scrollToBottom();
     }
 });
 
 socket.on('users online', (users) => {
-    const userList = document.getElementById('userList');
-    const currentUser = JSON.parse(localStorage.getItem('user'));
-    
-    userList.innerHTML = users.map(user => {
-        const isAdmin = user.role === 'admin';
-        const isMuted = user.isMuted;
-        const muteButton = !isAdmin && currentUser.role === 'admin' ? 
-          `<button onclick="${isMuted ? 'unmuteUser' : 'muteUser'}('${user._id}')" class="mute-button">
-            ${isMuted ? 'Desmutar' : 'Mutar'}
-          </button>` : '';
-        
-        return `
-          <div class="user-item ${isMuted ? 'muted' : ''} ${isAdmin ? 'admin' : ''}">
-            <img src="${user.profileImage || 'https://www.gravatar.com/avatar/00000000000000000000000000000000?d=mp&f=y'}" alt="${user.username}" class="user-avatar">
-            <span class="username">${user.username}</span>
-            ${isAdmin ? '<span class="admin-tag">Admin</span>' : ''}
-            ${isMuted ? '<span class="muted-tag">Mutado</span>' : ''}
-            ${muteButton}
-          </div>
-        `;
-    }).join('');
+    updateOnlineUsers(users);
 });
 
 socket.on('message deleted', (messageId) => {
