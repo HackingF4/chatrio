@@ -1,22 +1,115 @@
-// Configuração do Socket.io e API
-const socket = io(window.location.hostname === 'localhost' 
+// Configuração do Socket.IO
+const SOCKET_URL = window.location.hostname === 'localhost' 
     ? 'http://localhost:3000'
-    : 'https://web-production-fa86.up.railway.app', {
-    withCredentials: true,
-    transports: ['websocket', 'polling'],
-    reconnection: true,
-    reconnectionAttempts: 5,
-    reconnectionDelay: 1000
-});
+    : 'https://web-production-fa86.up.railway.app';
 
-const API_URL = window.location.hostname === 'localhost' 
-    ? 'http://localhost:3000/api'
-    : '/api'; // Usa o proxy do Netlify
-
-// Variáveis globais
-let currentUser = null;
-let currentRoom = 'Bate-papo 1';
+let socket;
+let currentUser;
+let currentRoom = 'geral';
 let darkMode = localStorage.getItem('darkMode') === 'true';
+
+// Verificar autenticação ao carregar a página
+const checkAuth = () => {
+    const token = localStorage.getItem('token');
+    const savedUser = localStorage.getItem('user');
+    
+    if (!token || !savedUser) {
+        window.location.href = '/';
+        return false;
+    }
+
+    try {
+        currentUser = JSON.parse(savedUser);
+        return true;
+    } catch (error) {
+        console.error('Erro ao carregar dados do usuário:', error);
+        localStorage.clear();
+        window.location.href = '/';
+        return false;
+    }
+};
+
+// Inicializar conexão com Socket.IO
+const initializeSocket = () => {
+    if (!checkAuth()) return;
+
+    socket = io(SOCKET_URL, {
+        auth: {
+            token: getToken()
+        },
+        transports: ['websocket'],
+        upgrade: false,
+        reconnection: true,
+        reconnectionAttempts: 5,
+        reconnectionDelay: 1000
+    });
+
+    setupSocketListeners();
+};
+
+// Configurar listeners do Socket.IO
+const setupSocketListeners = () => {
+    socket.on('connect', () => {
+        console.log('Conectado ao servidor');
+        socket.emit('user connected', currentUser);
+        socket.emit('join room', currentRoom);
+        loadMessages();
+    });
+
+    socket.on('reconnect', () => {
+        console.log('Reconectado ao servidor');
+        socket.emit('user connected', currentUser);
+        socket.emit('join room', currentRoom);
+        loadMessages();
+    });
+
+    socket.on('disconnect', () => {
+        console.log('Desconectado do servidor');
+    });
+
+    socket.on('users online', updateOnlineUsers);
+    socket.on('new message', handleNewMessage);
+    socket.on('user muted', handleUserMuted);
+    socket.on('user unmuted', handleUserUnmuted);
+    socket.on('chat cleared', handleChatCleared);
+    socket.on('error', handleError);
+};
+
+// Função para lidar com novas mensagens
+const handleNewMessage = (message) => {
+    const container = document.getElementById('messageContainer');
+    const messageElement = createMessageElement(message);
+    container.appendChild(messageElement);
+    scrollToBottom();
+};
+
+// Função para lidar com usuário mutado
+const handleUserMuted = (data) => {
+    if (currentUser && data.userId === currentUser.id) {
+        currentUser.isMuted = true;
+        localStorage.setItem('user', JSON.stringify(currentUser));
+    }
+};
+
+// Função para lidar com usuário desmutado
+const handleUserUnmuted = (data) => {
+    if (currentUser && data.userId === currentUser.id) {
+        currentUser.isMuted = false;
+        localStorage.setItem('user', JSON.stringify(currentUser));
+    }
+};
+
+// Função para lidar com chat limpo
+const handleChatCleared = () => {
+    const container = document.getElementById('messageContainer');
+    container.innerHTML = '';
+};
+
+// Função para lidar com erros
+const handleError = (error) => {
+    console.error('Erro:', error);
+    alert(error.message);
+};
 
 // Função para obter o token
 const getToken = () => localStorage.getItem('token');
@@ -29,9 +122,63 @@ const formatDate = (date) => {
     });
 };
 
-// Função para carregar mensagens
+// Função para verificar e renovar o token
+const checkAndRenewToken = async () => {
+    const token = getToken();
+    if (!token) return false;
+
+    try {
+        const response = await fetch(`${API_URL}/auth/verify`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+            }
+        });
+
+        if (!response.ok) {
+            throw new Error('Token inválido');
+        }
+
+        const data = await response.json();
+        
+        // Atualizar token se necessário
+        if (data.newToken) {
+            localStorage.setItem('token', data.newToken);
+        }
+
+        return true;
+    } catch (error) {
+        console.error('Erro ao verificar token:', error);
+        return false;
+    }
+};
+
+// Função para fazer logout
+const logout = () => {
+    // Desconectar do Socket.io
+    if (socket) {
+        socket.disconnect();
+    }
+    
+    // Limpar dados do localStorage
+    localStorage.removeItem('token');
+    localStorage.removeItem('user');
+    
+    // Redirecionar para a página de login
+    window.location.href = '/';
+};
+
+// Função para carregar mensagens com cache
 const loadMessages = async (room = currentRoom) => {
     try {
+        // Tentar carregar do cache primeiro
+        const cachedMessages = sessionStorage.getItem(`messages_${room}`);
+        if (cachedMessages) {
+            displayMessages(JSON.parse(cachedMessages));
+        }
+
+        // Fazer requisição ao servidor
         const response = await fetch(`${API_URL}/chat/messages?room=${room}`, {
             headers: {
                 'Authorization': `Bearer ${getToken()}`
@@ -41,10 +188,23 @@ const loadMessages = async (room = currentRoom) => {
         if (!response.ok) throw new Error('Erro ao carregar mensagens');
 
         const messages = await response.json();
-        displayMessages(messages);
+        
+        // Atualizar cache
+        sessionStorage.setItem(`messages_${room}`, JSON.stringify(messages));
+        
+        // Exibir mensagens apenas se forem diferentes das que estão em cache
+        if (!cachedMessages || JSON.stringify(messages) !== cachedMessages) {
+            displayMessages(messages);
+        }
     } catch (error) {
         console.error('Erro:', error);
-        alert('Erro ao carregar mensagens');
+        // Se houver erro, usar cache se disponível
+        const cachedMessages = sessionStorage.getItem(`messages_${room}`);
+        if (cachedMessages) {
+            displayMessages(JSON.parse(cachedMessages));
+        } else {
+            alert('Erro ao carregar mensagens');
+        }
     }
 };
 
@@ -120,12 +280,21 @@ const sendMessage = async (content) => {
     }
 };
 
-// Função para atualizar lista de usuários online
+// Função para atualizar lista de usuários com cache
 const updateOnlineUsers = (users) => {
     if (!Array.isArray(users)) {
         console.log('Lista de usuários inválida:', users);
         return;
     }
+
+    // Verificar se a lista é diferente da cache
+    const cachedUsers = sessionStorage.getItem('online_users');
+    if (cachedUsers && JSON.stringify(users) === cachedUsers) {
+        return; // Se for igual, não atualiza
+    }
+
+    // Atualizar cache
+    sessionStorage.setItem('online_users', JSON.stringify(users));
 
     const currentUser = JSON.parse(localStorage.getItem('user'));
     if (!currentUser) {
@@ -322,19 +491,6 @@ const compressImage = (file) => {
     });
 };
 
-// Função para fazer logout
-const logout = () => {
-    // Desconectar do Socket.io
-    socket.disconnect();
-    
-    // Limpar dados do localStorage
-    localStorage.removeItem('token');
-    localStorage.removeItem('user');
-    
-    // Redirecionar para a página de login
-    window.location.href = '/';
-};
-
 // Funções globais para mutar/desmutar usuários
 window.muteUser = async function(userId) {
   try {
@@ -413,110 +569,113 @@ window.clearChat = async function() {
     }
 };
 
-// Socket event para chat limpo
-socket.on('chat cleared', ({ room }) => {
-    if (room === currentRoom) {
-        const messageContainer = document.getElementById('messageContainer');
-        messageContainer.innerHTML = '';
-        
-        // Adicionar mensagem do sistema
-        const systemMessage = document.createElement('div');
-        systemMessage.className = 'message system-message';
-        systemMessage.innerHTML = `
-            <div class="message-content">
-                <div class="message-text">
-                    <i class="fas fa-info-circle"></i> O chat foi limpo por um administrador
-                </div>
-            </div>
-        `;
-        messageContainer.appendChild(systemMessage);
-    }
-});
-
 // Event Listeners
 document.addEventListener('DOMContentLoaded', () => {
-    // Carregar usuário atual
-    currentUser = JSON.parse(localStorage.getItem('user'));
-    if (!currentUser) {
-        window.location.href = '/';
-        return;
+    // Inicializar Socket.IO e verificar autenticação
+    initializeSocket();
+    
+    if (!currentUser) return;
+
+    // Configurar tema
+    document.body.classList.toggle('light-theme', !darkMode);
+    const themeIcon = document.querySelector('#themeToggle i');
+    if (themeIcon) {
+        themeIcon.className = darkMode ? 'fas fa-sun' : 'fas fa-moon';
     }
 
-    // Configurar botão e painel de administração
+    // Configurar interface do usuário
+    setupUserInterface();
+    
+    // Configurar eventos
+    setupEventListeners();
+    
+    // Atualizar lista de usuários periodicamente
+    startUserListUpdates();
+});
+
+// Configurar interface do usuário
+const setupUserInterface = () => {
+    // Atualizar informações do usuário
+    document.getElementById('username').textContent = currentUser.username;
+    document.getElementById('userAvatar').src = currentUser.profileImage || 'https://www.gravatar.com/avatar/00000000000000000000000000000000?d=mp&f=y';
+
+    // Configurar painel de administração
     const adminPanelButton = document.getElementById('adminPanelButton');
     const adminPanel = document.getElementById('adminPanel');
 
-    if (currentUser.role === 'admin') {
+    if (currentUser.role === 'admin' && adminPanelButton && adminPanel) {
         adminPanelButton.style.display = 'flex';
         
         adminPanelButton.addEventListener('click', () => {
-            if (adminPanel.style.display === 'none' || !adminPanel.style.display) {
-                adminPanel.style.display = 'block';
-                adminPanelButton.style.backgroundColor = '#5b6eae';
-            } else {
-                adminPanel.style.display = 'none';
-                adminPanelButton.style.backgroundColor = '#7289da';
-            }
+            const isVisible = adminPanel.style.display === 'block';
+            adminPanel.style.display = isVisible ? 'none' : 'block';
+            adminPanelButton.style.backgroundColor = isVisible ? '#7289da' : '#5b6eae';
         });
     }
+};
+
+// Configurar event listeners
+const setupEventListeners = () => {
+    // Event listener para envio de mensagem
+    const messageForm = document.getElementById('messageForm');
+    const messageInput = document.getElementById('messageInput');
+
+    messageForm?.addEventListener('submit', (e) => {
+        e.preventDefault();
+        const content = messageInput.value.trim();
+        if (content) {
+            sendMessage(content);
+        }
+    });
 
     // Event listener para logout
-    document.getElementById('logoutButton').addEventListener('click', () => {
+    document.getElementById('logoutButton')?.addEventListener('click', () => {
         const confirmLogout = confirm('Tem certeza que deseja sair?');
         if (confirmLogout) {
             logout();
         }
     });
 
-    // Conectar ao Socket.io e enviar dados do usuário
-    if (currentUser) {
-        socket.emit('user connected', {
-            id: currentUser.id,
-            username: currentUser.username,
-            profileImage: currentUser.profileImage || 'https://www.gravatar.com/avatar/00000000000000000000000000000000?d=mp&f=y',
-            role: currentUser.role,
-            isMuted: currentUser.isMuted
-        });
+    // Event listener para alternar tema
+    document.getElementById('themeToggle')?.addEventListener('click', () => {
+        toggleTheme();
+        const emojiPicker = document.getElementById('emojiPicker');
+        if (emojiPicker) {
+            emojiPicker.classList.toggle('light', !darkMode);
+        }
+    });
 
-        // Solicitar lista de usuários ao carregar
-        socket.emit('get users');
-
-        // Entrar na sala padrão
-        socket.emit('join room', currentRoom);
-    }
-
-    // Atualizar informações do usuário
-    document.getElementById('username').textContent = currentUser.username;
-    document.getElementById('userAvatar').src = currentUser.profileImage || 'https://www.gravatar.com/avatar/00000000000000000000000000000000?d=mp&f=y';
-
-    // Carregar mensagens iniciais
-    loadMessages();
-
-    // Configurar tema
-    document.body.classList.toggle('light-theme', !darkMode);
-    const themeIcon = document.querySelector('#themeToggle i');
-    themeIcon.className = darkMode ? 'fas fa-sun' : 'fas fa-moon';
+    // Event listener para seleção de canal
+    document.getElementById('channelList')?.addEventListener('click', (e) => {
+        if (e.target.tagName === 'LI') {
+            const newRoom = e.target.textContent.replace('#', '').trim();
+            changeRoom(newRoom);
+        }
+    });
 
     // Configurar emoji picker
+    setupEmojiPicker();
+};
+
+// Configurar emoji picker
+const setupEmojiPicker = () => {
     const emojiButton = document.getElementById('emojiButton');
     const emojiPicker = document.getElementById('emojiPicker');
     const messageInput = document.getElementById('messageInput');
 
-    // Mostrar/ocultar emoji picker
+    if (!emojiButton || !emojiPicker || !messageInput) return;
+
     emojiButton.addEventListener('click', () => {
         emojiPicker.classList.toggle('visible');
-        // Atualizar tema do emoji picker
         emojiPicker.classList.toggle('light', !darkMode);
     });
 
-    // Fechar emoji picker ao clicar fora
     document.addEventListener('click', (e) => {
         if (!emojiButton.contains(e.target) && !emojiPicker.contains(e.target)) {
             emojiPicker.classList.remove('visible');
         }
     });
 
-    // Inserir emoji selecionado
     emojiPicker.addEventListener('emoji-click', event => {
         const cursor = messageInput.selectionStart;
         const text = messageInput.value;
@@ -526,103 +685,44 @@ document.addEventListener('DOMContentLoaded', () => {
         messageInput.selectionStart = cursor + event.detail.unicode.length;
         messageInput.selectionEnd = cursor + event.detail.unicode.length;
     });
+};
 
-    // Event listener para envio de mensagem
-    document.getElementById('messageForm').addEventListener('submit', (e) => {
-        e.preventDefault();
-        const content = messageInput.value.trim();
-        
-        if (content) {
-            sendMessage(content);
-        }
-    });
+// Iniciar atualizações da lista de usuários
+const startUserListUpdates = () => {
+    // Atualizar lista inicial
+    socket.emit('get users');
 
-    // Event listener para alternar tema
-    document.getElementById('themeToggle').addEventListener('click', () => {
-        toggleTheme();
-        // Atualizar tema do emoji picker
-        emojiPicker.classList.toggle('light', !darkMode);
-    });
-
-    // Event listener para seleção de canal
-    document.getElementById('channelList').addEventListener('click', (e) => {
-        if (e.target.tagName === 'LI') {
-            const newRoom = e.target.textContent.replace('#', '').trim();
-            
-            // Atualizar canal ativo
-            document.querySelectorAll('#channelList li').forEach(li => {
-                li.classList.remove('active');
-            });
-            e.target.classList.add('active');
-
-            // Mudar de sala
-            currentRoom = newRoom;
-            document.getElementById('currentChannel').textContent = newRoom;
-            socket.emit('join room', newRoom);
-            loadMessages(newRoom);
-        }
-    });
-
-    // Configurar upload de foto
-    const fileInput = document.getElementById('fileInput');
-    const imagePreview = document.getElementById('imagePreview');
-    const saveButton = document.getElementById('saveProfilePhoto');
-
-    fileInput.addEventListener('change', async (e) => {
-        const file = e.target.files[0];
-        if (file) {
-            try {
-                // Verificar tipo de arquivo
-                if (!file.type.startsWith('image/')) {
-                    alert('Por favor, selecione apenas arquivos de imagem');
-                    fileInput.value = '';
-                    return;
-                }
-
-                if (file.size > 10 * 1024 * 1024) { // 10MB
-                    alert('A imagem deve ter no máximo 10MB');
-                    fileInput.value = '';
-                    return;
-                }
-
-                // Comprimir imagem
-                const compressedImage = await compressImage(file);
-                imagePreview.src = compressedImage;
-                imagePreview.style.display = 'block';
-            } catch (error) {
-                console.error('Erro ao processar imagem:', error);
-                alert('Erro ao processar imagem');
-            }
-        }
-    });
-
-    saveButton.addEventListener('click', () => {
-        const photoData = imagePreview.src;
-        if (photoData && photoData !== '') {
-            updateProfilePhoto(photoData);
-        }
-    });
-
-    // Fechar modal ao clicar fora
-    window.addEventListener('click', (e) => {
-        const modal = document.getElementById('profileModal');
-        if (e.target === modal) {
-            modal.style.display = 'none';
-        }
-    });
-
-    // Remover o setInterval antigo e usar um intervalo mais longo
+    // Atualizar a cada 3 segundos
     const updateInterval = setInterval(() => {
         if (socket.connected) {
             socket.emit('get users');
         }
-    }, 30000); // Atualiza a cada 30 segundos
+    }, 3000);
 
-    // Limpar o intervalo quando a página for fechada
+    // Limpar intervalo quando a página for fechada
     window.addEventListener('beforeunload', () => {
         clearInterval(updateInterval);
     });
-});
+};
+
+// Função para mudar de sala
+const changeRoom = (newRoom) => {
+    // Atualizar canal ativo
+    document.querySelectorAll('#channelList li').forEach(li => {
+        li.classList.remove('active');
+    });
+    
+    const roomElement = document.querySelector(`#channelList li:contains('${newRoom}')`);
+    if (roomElement) {
+        roomElement.classList.add('active');
+    }
+
+    // Mudar de sala
+    currentRoom = newRoom;
+    document.getElementById('currentChannel').textContent = newRoom;
+    socket.emit('join room', newRoom);
+    loadMessages(newRoom);
+};
 
 // Socket.io event listeners
 socket.on('connect', () => {
