@@ -10,34 +10,41 @@ const app = express();
 const server = http.createServer(app);
 
 // Configuração do CORS para produção
-const allowedOrigins = [
-  'http://localhost:3000',
-  'https://chatrio.netlify.app',
-  'https://chatrioo.netlify.app',
-  'https://web-producao-fa86.up.railway.app',
-  process.env.FRONTEND_URL // Permite URL dinâmica do frontend
-].filter(Boolean); // Remove valores undefined/null
+const corsOptions = {
+  origin: true, // Reflect the request origin
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept'],
+  preflightContinue: false,
+  optionsSuccessStatus: 204
+};
 
-// Middleware
+// Aplicar CORS como primeiro middleware
+app.use(cors(corsOptions));
+
+// Middleware adicional para garantir headers CORS
 app.use((req, res, next) => {
-  res.header('Access-Control-Allow-Origin', '*');
-  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
-  res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
+  res.header('Access-Control-Allow-Origin', req.headers.origin || '*');
   res.header('Access-Control-Allow-Credentials', 'true');
+  res.header('Access-Control-Allow-Methods', 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS');
+  res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
   
+  // Interceptar requisições OPTIONS
   if (req.method === 'OPTIONS') {
     return res.status(200).end();
   }
   next();
 });
 
+// Configuração do Socket.IO com CORS
 const io = socketIo(server, {
   cors: {
-    origin: '*',
+    origin: true, // Reflect the request origin
     methods: ["GET", "POST", "PUT", "DELETE"],
     credentials: true,
     allowedHeaders: ['Content-Type', 'Authorization']
-  }
+  },
+  allowEIO3: true // Permitir Engine.IO versão 3
 });
 
 // Middleware para parsing JSON e URL encoded
