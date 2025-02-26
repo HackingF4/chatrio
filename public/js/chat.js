@@ -141,6 +141,7 @@ const updateOnlineUsers = (users) => {
         return;
     }
     
+    // Limpar listas antigas
     userList.innerHTML = '';
     userListAdmin.innerHTML = '';
 
@@ -158,12 +159,10 @@ const updateOnlineUsers = (users) => {
     if (adminPanelButton) {
         adminPanelButton.style.display = isAdmin ? 'flex' : 'none';
     }
-    adminPanel.style.display = isAdmin ? 'block' : 'none';
 
     // Adicionar título da seção
-    const usersTitle = document.createElement('div');
-    usersTitle.className = 'users-title';
-    usersTitle.innerHTML = `<h3>Usuários Online (${users.length})</h3>`;
+    const usersTitle = document.createElement('h3');
+    usersTitle.textContent = 'USUÁRIOS ONLINE';
     userList.appendChild(usersTitle);
 
     // Ordenar usuários: admins primeiro, depois por nome
@@ -173,7 +172,12 @@ const updateOnlineUsers = (users) => {
         return a.username.localeCompare(b.username);
     });
 
-    users.forEach(user => {
+    // Remover duplicatas baseado no ID
+    const uniqueUsers = users.filter((user, index, self) =>
+        index === self.findIndex((u) => u._id === user._id)
+    );
+
+    uniqueUsers.forEach(user => {
         if (!user || !user.username) return;
 
         // Lista normal de usuários
