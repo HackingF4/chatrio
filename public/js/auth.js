@@ -30,46 +30,50 @@ const verifyToken = async (token) => {
 const checkAuthentication = async () => {
     const token = localStorage.getItem('token');
     const savedUser = localStorage.getItem('user');
+    const currentPath = window.location.pathname;
 
-    if (token && savedUser) {
-        try {
-            // Verificar se o token é válido
-            const { valid, user } = await verifyToken(token);
-            
-            if (valid) {
-                // Atualizar dados do usuário se necessário
-                const currentUser = JSON.parse(savedUser);
-                if (user && JSON.stringify(user) !== JSON.stringify(currentUser)) {
-                    localStorage.setItem('user', JSON.stringify(user));
-                }
+    if (!token || !savedUser) {
+        // Se não tiver token e estiver na página do chat, redirecionar para login
+        if (currentPath.includes('batepapo')) {
+            window.location.href = '/';
+            return false;
+        }
+        return false;
+    }
 
-                // Se estiver na página de login ou index, redirecionar para o chat
-                const path = window.location.pathname;
-                if (path === '/' || path === '/index.html' || path.includes('login')) {
-                    window.location.href = '/chat.html';
-                    return true;
-                }
-                return true;
-            } else {
-                // Se o token não for válido, limpar dados e redirecionar
-                localStorage.removeItem('token');
-                localStorage.removeItem('user');
-                sessionStorage.clear();
-                if (window.location.pathname.includes('chat.html')) {
-                    window.location.href = '/';
-                }
+    try {
+        // Verificar se o token é válido
+        const { valid, user } = await verifyToken(token);
+        
+        if (valid) {
+            // Atualizar dados do usuário se necessário
+            if (user && JSON.stringify(user) !== savedUser) {
+                localStorage.setItem('user', JSON.stringify(user));
             }
-        } catch (error) {
-            console.error('Erro ao verificar autenticação:', error);
-            if (window.location.pathname.includes('chat.html')) {
+
+            // Se estiver na página de login ou index, redirecionar para o chat
+            if (currentPath === '/' || currentPath === '/index.html') {
+                window.location.href = '/batepapo';
+                return true;
+            }
+            return true;
+        } else {
+            // Se o token não for válido, limpar dados e redirecionar
+            localStorage.removeItem('token');
+            localStorage.removeItem('user');
+            sessionStorage.clear();
+            if (currentPath.includes('batepapo')) {
                 window.location.href = '/';
             }
+            return false;
         }
-    } else if (window.location.pathname.includes('chat.html')) {
-        // Se não tiver token e estiver na página do chat, redirecionar para login
-        window.location.href = '/';
+    } catch (error) {
+        console.error('Erro ao verificar autenticação:', error);
+        if (currentPath.includes('batepapo')) {
+            window.location.href = '/';
+        }
+        return false;
     }
-    return false;
 };
 
 // Função para salvar o token no localStorage
@@ -99,13 +103,11 @@ const login = async (email, password) => {
             throw new Error(data.message || 'Erro ao fazer login');
         }
 
-        setToken(data.token);
+        localStorage.setItem('token', data.token);
         localStorage.setItem('user', JSON.stringify(data.user));
-        
-        // Limpar qualquer cache antigo
         sessionStorage.clear();
         
-        window.location.href = '/chat.html';
+        window.location.href = '/batepapo';
     } catch (error) {
         console.error('Erro no login:', error);
         alert(error.message);
@@ -152,41 +154,37 @@ const logout = () => {
 
 // Event Listeners
 document.addEventListener('DOMContentLoaded', async () => {
-    try {
-        // Verificar autenticação primeiro
-        await checkAuthentication();
+    // Verificar autenticação primeiro
+    await checkAuthentication();
 
-        const loginForm = document.getElementById('loginForm');
-        const registerForm = document.getElementById('registerForm');
+    const loginForm = document.getElementById('loginForm');
+    const registerForm = document.getElementById('registerForm');
 
-        // Formulário de Login
-        if (loginForm) {
-            loginForm.addEventListener('submit', async (e) => {
-                e.preventDefault();
-                const email = document.getElementById('email').value;
-                const password = document.getElementById('password').value;
-                await login(email, password);
-            });
-        }
+    // Formulário de Login
+    if (loginForm) {
+        loginForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+            await login(email, password);
+        });
+    }
 
-        // Formulário de Registro
-        if (registerForm) {
-            registerForm.addEventListener('submit', async (e) => {
-                e.preventDefault();
-                const username = document.getElementById('username').value;
-                const email = document.getElementById('email').value;
-                const password = document.getElementById('password').value;
-                const confirmPassword = document.getElementById('confirmPassword').value;
+    // Formulário de Registro
+    if (registerForm) {
+        registerForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const username = document.getElementById('username').value;
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+            const confirmPassword = document.getElementById('confirmPassword').value;
 
-                if (password !== confirmPassword) {
-                    alert('As senhas não coincidem');
-                    return;
-                }
+            if (password !== confirmPassword) {
+                alert('As senhas não coincidem');
+                return;
+            }
 
-                await register(username, email, password);
-            });
-        }
-    } catch (error) {
-        console.error('Erro na inicialização:', error);
+            await register(username, email, password);
+        });
     }
 }); 
