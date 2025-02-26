@@ -106,12 +106,6 @@ const sendMessage = async (content) => {
             throw new Error(data.message || 'Erro ao enviar mensagem');
         }
 
-        // Obter a mensagem criada da resposta
-        const messageData = await response.json();
-
-        // Emitir a mensagem via Socket.IO
-        socket.emit('chat message', { room: currentRoom, message: messageData });
-
         // Limpar o input e manter o foco
         const messageInput = document.getElementById('messageInput');
         messageInput.value = '';
