@@ -153,11 +153,11 @@ io.on('connection', (socket) => {
 // Conexão com MongoDB
 mongoose.set('strictQuery', false);
 
-// Log para debug
-console.log('Tentando conectar ao MongoDB com URI:', process.env.MONGODB_URI);
+// URI fixa para produção
+const MONGODB_URI = 'mongodb+srv://jisogomes333:khAvapesqxhWDxxt@cluster0.olcsf.mongodb.net/chat-app?retryWrites=true&w=majority';
 
-// URI de fallback para desenvolvimento
-const MONGODB_URI = process.env.MONGODB_URI || 'mongodb+srv://jisogomes333:khAvapesqxhWDxxt@cluster0.olcsf.mongodb.net/chat-app?retryWrites=true&w=majority';
+// Log para debug
+console.log('Conectando ao MongoDB...');
 
 mongoose.connect(MONGODB_URI, {
   useNewUrlParser: true,
@@ -166,7 +166,7 @@ mongoose.connect(MONGODB_URI, {
   socketTimeoutMS: 45000,
 })
 .then(() => {
-  console.log('Conectado ao MongoDB');
+  console.log('Conectado ao MongoDB com sucesso');
   const PORT = process.env.PORT || 8080;
   server.listen(PORT, '0.0.0.0', () => {
     console.log(`Servidor rodando na porta ${PORT}`);
