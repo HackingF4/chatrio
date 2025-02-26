@@ -118,6 +118,7 @@ io.on('connection', (socket) => {
     }
 
     const { room, message } = messageData;
+    // Emitir a mensagem para todos os usuários na sala
     io.to(room).emit('new message', message);
   });
 
