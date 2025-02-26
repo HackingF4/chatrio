@@ -1,25 +1,26 @@
 [build]
-  publish = "client"
+  publish = "public"
   command = "# no build command"
 
 [[redirects]]
   from = "/api/*"
-  to = "https://web-production-fa86.up.railway.app/api/:splat"
+  to = "https://chatrio-production.up.railway.app/api/:splat"
   status = 200
   force = true
-  headers = {Access-Control-Allow-Origin = "*"}
+  headers = {Access-Control-Allow-Origin = "*", Access-Control-Allow-Methods = "GET, POST, PUT, DELETE, OPTIONS", Access-Control-Allow-Headers = "Content-Type, Authorization, X-Requested-With, Accept", Access-Control-Allow-Credentials = "true"}
 
 [[redirects]]
   from = "/socket.io/*"
-  to = "https://web-production-fa86.up.railway.app/socket.io/:splat"
+  to = "https://chatrio-production.up.railway.app/socket.io/:splat"
   status = 200
   force = true
-  headers = {Access-Control-Allow-Origin = "*"}
+  headers = {Access-Control-Allow-Origin = "*", Access-Control-Allow-Methods = "GET, POST, PUT, DELETE, OPTIONS", Access-Control-Allow-Headers = "Content-Type, Authorization, X-Requested-With, Accept", Access-Control-Allow-Credentials = "true"}
 
 [[redirects]]
   from = "/*"
   to = "/index.html"
   status = 200
+  force = true
 
 [[headers]]
   for = "/*"
@@ -28,4 +29,5 @@
     Access-Control-Allow-Methods = "GET, POST, PUT, DELETE, OPTIONS"
     Access-Control-Allow-Headers = "Content-Type, Authorization, X-Requested-With, Accept"
     Access-Control-Allow-Credentials = "true"
-    Access-Control-Max-Age = "86400" 
+    Access-Control-Max-Age = "86400"
+    Cache-Control = "no-store, no-cache" 
