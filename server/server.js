@@ -53,14 +53,13 @@ app.use((req, res, next) => {
 // Configuração do Socket.IO com CORS
 const io = socketIo(server, {
   cors: {
-    origin: '*', // Permitir todas as origens temporariamente
+    origin: '*',
     methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-    credentials: true,
-    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept']
+    credentials: true
   },
-  transports: ['websocket', 'polling'], // Suporte a fallback para polling
-  pingTimeout: 60000, // Aumentar timeout
-  pingInterval: 25000 // Ajustar intervalo de ping
+  transports: ['websocket'],
+  pingTimeout: 30000,
+  pingInterval: 10000
 });
 
 // Middleware para parsing JSON e URL encoded
@@ -72,6 +71,7 @@ app.set('io', io);
 
 // Socket.io
 const connectedUsers = new Map();
+const messageCache = new Set(); // Cache para evitar duplicação
 
 io.on('connection', (socket) => {
   console.log('Novo usuário conectado:', socket.id);
@@ -107,20 +107,16 @@ io.on('connection', (socket) => {
     console.log(`Usuário ${socket.id} entrando na sala: ${room}`);
     socket.leaveAll();
     socket.join(room);
-    console.log(`Usuário ${socket.id} entrou na sala: ${room}`);
   });
 
   // Quando uma mensagem é enviada
   socket.on('chat message', (messageData) => {
-    console.log('Mensagem recebida:', messageData);
-    
     const user = connectedUsers.get(socket.id);
     if (!user) {
-      console.log('Usuário não encontrado:', socket.id);
+      socket.emit('error', { message: 'Usuário não encontrado' });
       return;
     }
 
-    // Verificar se o usuário está mutado
     if (user.isMuted) {
       socket.emit('error', { message: 'Você está mutado e não pode enviar mensagens.' });
       return;
@@ -128,9 +124,26 @@ io.on('connection', (socket) => {
 
     const { room, message } = messageData;
     
-    // Emitir a mensagem para todos os usuários na sala
+    // Criar ID único para a mensagem
+    const messageId = `${user._id}-${Date.now()}`;
+    
+    // Verificar se a mensagem já está no cache
+    if (messageCache.has(messageId)) {
+      return;
+    }
+
+    // Adicionar ao cache
+    messageCache.add(messageId);
+    
+    // Limitar tamanho do cache (manter últimas 1000 mensagens)
+    if (messageCache.size > 1000) {
+      const [firstItem] = messageCache;
+      messageCache.delete(firstItem);
+    }
+
+    // Criar objeto da mensagem
     const newMessage = {
-      _id: Date.now().toString(), // Adicionar ID único para cada mensagem
+      _id: messageId,
       content: message.content,
       sender: {
         username: user.username,
@@ -140,10 +153,8 @@ io.on('connection', (socket) => {
       room: room
     };
     
-    console.log('Enviando mensagem para sala:', room, newMessage);
-    
-    // Emitir para todos os clientes, incluindo o remetente
-    io.emit('new message', newMessage);
+    // Emitir apenas para a sala específica
+    io.to(room).emit('new message', newMessage);
   });
 
   // Quando um usuário é mutado

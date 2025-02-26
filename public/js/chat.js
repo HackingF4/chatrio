@@ -11,7 +11,7 @@ let socket;
 let currentUser;
 let currentRoom = 'Bate-papo 1';
 let darkMode = localStorage.getItem('darkMode') === 'true';
-let messageIds = new Set(); // Para evitar duplicação de mensagens
+let processedMessages = new Set(); // Controle de mensagens já processadas
 
 // Verificar autenticação ao carregar a página
 const checkAuth = () => {
@@ -38,22 +38,22 @@ const checkAuth = () => {
 const initializeSocket = () => {
     if (!checkAuth()) return;
 
-    // Desconectar socket existente se houver
+    // Limpar socket existente
     if (socket) {
         socket.disconnect();
         socket.removeAllListeners();
     }
 
+    // Limpar mensagens processadas ao reconectar
+    processedMessages.clear();
+
     socket = io(SOCKET_URL, {
-        auth: {
-            token: getToken()
-        },
-        transports: ['websocket', 'polling'], // Suporte a fallback para polling
+        auth: { token: getToken() },
+        transports: ['websocket'],
         reconnection: true,
-        reconnectionAttempts: Infinity,
+        reconnectionAttempts: 5,
         reconnectionDelay: 1000,
-        timeout: 20000,
-        forceNew: true // Força nova conexão
+        timeout: 10000
     });
 
     setupSocketListeners();
@@ -68,44 +68,35 @@ const setupSocketListeners = () => {
         loadMessages();
     });
 
-    socket.on('reconnect', () => {
-        console.log('Reconectado ao servidor');
-        socket.emit('user connected', currentUser);
-        socket.emit('join room', currentRoom);
-        loadMessages();
-    });
-
-    socket.on('disconnect', () => {
-        console.log('Desconectado do servidor');
-        setTimeout(() => {
-            socket.connect();
-        }, 1000);
-    });
-
-    socket.on('connect_error', (error) => {
-        console.error('Erro de conexão:', error);
-        setTimeout(() => {
-            socket.connect();
-        }, 1000);
-    });
-
     socket.on('new message', (message) => {
         console.log('Nova mensagem recebida:', message);
         
-        // Verificar se a mensagem já foi exibida
+        // Criar ID único para a mensagem
         const messageId = message._id || `${message.sender.username}-${message.createdAt}-${message.content}`;
-        if (messageIds.has(messageId)) {
+        
+        // Verificar se a mensagem já foi processada
+        if (processedMessages.has(messageId)) {
             console.log('Mensagem duplicada ignorada:', messageId);
             return;
         }
-        
-        // Adicionar ID da mensagem ao Set
-        messageIds.add(messageId);
-        
+
+        // Adicionar ao controle de mensagens processadas
+        processedMessages.add(messageId);
+
         // Verificar se a mensagem é da sala atual
         if (message.room === currentRoom) {
             const container = document.getElementById('messageContainer');
+            if (!container) return;
+
+            // Verificar se a mensagem já existe no DOM
+            const existingMessage = container.querySelector(`[data-message-id="${messageId}"]`);
+            if (existingMessage) {
+                console.log('Mensagem já existe no DOM:', messageId);
+                return;
+            }
+
             const messageElement = createMessageElement(message);
+            messageElement.dataset.messageId = messageId;
             container.appendChild(messageElement);
             scrollToBottom();
         }
@@ -339,8 +330,8 @@ const createMessageElement = (message) => {
 // Função para enviar mensagem
 const sendMessage = (text) => {
     if (!socket || !socket.connected) {
-        console.log('Socket não conectado. Tentando reconectar...');
-        initializeSocket(); // Reinicializar socket se não estiver conectado
+        console.log('Socket não conectado, reconectando...');
+        initializeSocket();
         return;
     }
 
@@ -349,30 +340,18 @@ const sendMessage = (text) => {
     const messageData = {
         room: currentRoom,
         message: {
-            content: text,
+            content: text.trim(),
             sender: {
                 username: currentUser.username,
-                profileImage: currentUser.profileImage || 'https://www.gravatar.com/avatar/00000000000000000000000000000000?d=mp&f=y'
-            },
-            createdAt: new Date()
+                profileImage: currentUser.profileImage
+            }
         }
     };
 
-    console.log('Enviando mensagem:', messageData);
-    
-    // Tentar enviar a mensagem com retry
-    const tryEmit = (retries = 3) => {
-        socket.emit('chat message', messageData, (error) => {
-            if (error && retries > 0) {
-                console.log(`Erro ao enviar mensagem, tentando novamente... (${retries} tentativas restantes)`);
-                setTimeout(() => tryEmit(retries - 1), 1000);
-            }
-        });
-    };
-    
-    tryEmit();
+    // Enviar mensagem
+    socket.emit('chat message', messageData);
 
-    // Limpar o campo de mensagem
+    // Limpar input
     const messageInput = document.getElementById('messageInput');
     if (messageInput) {
         messageInput.value = '';
