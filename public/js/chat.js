@@ -122,22 +122,53 @@ const sendMessage = async (content) => {
 
 // Função para atualizar lista de usuários online
 const updateOnlineUsers = (users) => {
+    if (!users || !Array.isArray(users)) {
+        console.error('Lista de usuários inválida:', users);
+        return;
+    }
+
     const userList = document.getElementById('userList');
     const adminPanel = document.getElementById('adminPanel');
+    
+    if (!userList || !adminPanel) {
+        console.error('Elementos da interface não encontrados');
+        return;
+    }
+
     const userListAdmin = adminPanel.querySelector('.user-list-admin');
+    if (!userListAdmin) {
+        console.error('Lista de usuários admin não encontrada');
+        return;
+    }
     
     userList.innerHTML = '';
     userListAdmin.innerHTML = '';
 
     // Verificar se o usuário atual é admin
     const currentUser = JSON.parse(localStorage.getItem('user'));
+    if (!currentUser) {
+        console.error('Usuário atual não encontrado');
+        return;
+    }
+
     const isAdmin = currentUser.role === 'admin';
 
     // Mostrar/ocultar painel de admin
-    document.getElementById('adminPanelButton').style.display = isAdmin ? 'flex' : 'none';
+    const adminPanelButton = document.getElementById('adminPanelButton');
+    if (adminPanelButton) {
+        adminPanelButton.style.display = isAdmin ? 'flex' : 'none';
+    }
     adminPanel.style.display = isAdmin ? 'block' : 'none';
 
+    // Adicionar título da seção
+    const usersTitle = document.createElement('div');
+    usersTitle.className = 'users-title';
+    usersTitle.innerHTML = `<h3>Usuários Online (${users.length})</h3>`;
+    userList.appendChild(usersTitle);
+
     users.forEach(user => {
+        if (!user || !user.username) return;
+
         // Lista normal de usuários
         const userItem = document.createElement('div');
         userItem.className = 'user-item';
@@ -174,6 +205,11 @@ const updateOnlineUsers = (users) => {
             userListAdmin.appendChild(adminUserItem);
         }
     });
+
+    // Forçar atualização da interface
+    userList.style.display = 'none';
+    userList.offsetHeight; // Força um reflow
+    userList.style.display = 'block';
 };
 
 // Função para rolar para o final das mensagens
@@ -602,6 +638,11 @@ socket.on('connect', () => {
         
         // Recarregar mensagens
         loadMessages(currentRoom);
+
+        // Configurar intervalo para atualização periódica
+        setInterval(() => {
+            socket.emit('get users');
+        }, 10000); // Atualiza a cada 10 segundos
     }
 });
 
