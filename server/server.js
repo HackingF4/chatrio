@@ -10,8 +10,20 @@ const app = express();
 const server = http.createServer(app);
 
 // Configuração do CORS para produção
+const allowedOrigins = [
+  'https://chatrioo.netlify.app',
+  'http://localhost:3000',
+  'http://localhost:8080'
+];
+
 const corsOptions = {
-  origin: 'https://chatrioo.netlify.app',
+  origin: function (origin, callback) {
+    if (!origin || allowedOrigins.indexOf(origin) !== -1) {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept'],
@@ -38,7 +50,7 @@ app.use((req, res, next) => {
 // Configuração do Socket.IO com CORS
 const io = socketIo(server, {
   cors: {
-    origin: 'https://chatrioo.netlify.app',
+    origin: allowedOrigins,
     methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     credentials: true,
     allowedHeaders: ['Content-Type', 'Authorization']
