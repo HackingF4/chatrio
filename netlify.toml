@@ -4,14 +4,14 @@
 
 [[redirects]]
   from = "/api/*"
-  to = "https://chatrio-production.up.railway.app/api/:splat"
+  to = "https://web-production-fa86.up.railway.app/api/:splat"
   status = 200
   force = true
   headers = {Access-Control-Allow-Origin = "*", Access-Control-Allow-Methods = "GET, POST, PUT, DELETE, OPTIONS", Access-Control-Allow-Headers = "Content-Type, Authorization, X-Requested-With, Accept", Access-Control-Allow-Credentials = "true"}
 
 [[redirects]]
   from = "/socket.io/*"
-  to = "https://chatrio-production.up.railway.app/socket.io/:splat"
+  to = "https://web-production-fa86.up.railway.app/socket.io/:splat"
   status = 200
   force = true
   headers = {Access-Control-Allow-Origin = "*", Access-Control-Allow-Methods = "GET, POST, PUT, DELETE, OPTIONS", Access-Control-Allow-Headers = "Content-Type, Authorization, X-Requested-With, Accept", Access-Control-Allow-Credentials = "true"}
@@ -20,14 +20,33 @@
   from = "/*"
   to = "/index.html"
   status = 200
-  force = true
+  force = false
+
+[[headers]]
+  for = "/static/*"
+    [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"
+
+[[headers]]
+  for = "/*.css"
+    [headers.values]
+    Content-Type = "text/css"
+    Cache-Control = "public, max-age=31536000, immutable"
+
+[[headers]]
+  for = "/*.js"
+    [headers.values]
+    Content-Type = "application/javascript"
+    Cache-Control = "public, max-age=31536000, immutable"
 
 [[headers]]
   for = "/*"
     [headers.values]
+    X-Frame-Options = "DENY"
+    X-XSS-Protection = "1; mode=block"
+    X-Content-Type-Options = "nosniff"
+    Referrer-Policy = "strict-origin-when-cross-origin"
     Access-Control-Allow-Origin = "*"
     Access-Control-Allow-Methods = "GET, POST, PUT, DELETE, OPTIONS"
     Access-Control-Allow-Headers = "Content-Type, Authorization, X-Requested-With, Accept"
-    Access-Control-Allow-Credentials = "true"
-    Access-Control-Max-Age = "86400"
-    Cache-Control = "no-store, no-cache" 
+    Access-Control-Allow-Credentials = "true" 
