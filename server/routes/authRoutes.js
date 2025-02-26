@@ -9,6 +9,15 @@ router.post('/register', authController.register);
 router.post('/login', authController.login);
 router.get('/setup-admin', authController.setupInitialAdmin);
 
+// Rota para verificar token
+router.post('/verify', auth, (req, res) => {
+    // Se chegou aqui, o token é válido (middleware auth já verificou)
+    res.json({ 
+        valid: true,
+        user: req.user
+    });
+});
+
 // Rotas protegidas
 router.post('/profile-photo', auth, authController.updateProfilePhoto);
 router.post('/promote-admin', auth, authController.promoteToAdmin);

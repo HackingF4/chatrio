@@ -3,6 +3,52 @@ const API_URL = window.location.hostname === 'localhost'
     ? 'http://localhost:3000/api'
     : '/api'; // Usa o proxy do Netlify
 
+// Função para verificar se o token é válido
+const verifyToken = async (token) => {
+    try {
+        const response = await fetch(`${API_URL}/auth/verify`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+            }
+        });
+
+        return response.ok;
+    } catch (error) {
+        console.error('Erro ao verificar token:', error);
+        return false;
+    }
+};
+
+// Função para verificar autenticação
+const checkAuthentication = async () => {
+    const token = localStorage.getItem('token');
+    const user = localStorage.getItem('user');
+
+    if (token && user) {
+        try {
+            // Verificar se o token é válido
+            const isValid = await verifyToken(token);
+            
+            if (isValid) {
+                // Se estiver na página de login, redirecionar para o chat
+                if (window.location.pathname === '/' || window.location.pathname === '/index.html') {
+                    window.location.href = '/chat.html';
+                    return true;
+                }
+            } else {
+                // Se o token não for válido, limpar dados
+                localStorage.removeItem('token');
+                localStorage.removeItem('user');
+            }
+        } catch (error) {
+            console.error('Erro ao verificar autenticação:', error);
+        }
+    }
+    return false;
+};
+
 // Função para salvar o token no localStorage
 const setToken = (token) => {
     localStorage.setItem('token', token);
@@ -11,16 +57,6 @@ const setToken = (token) => {
 // Função para obter o token do localStorage
 const getToken = () => {
     return localStorage.getItem('token');
-};
-
-// Função para verificar se o usuário está logado
-const isAuthenticated = () => {
-    const token = getToken();
-    if (!token) {
-        window.location.href = '/';
-        return false;
-    }
-    return true;
 };
 
 // Função para fazer login
@@ -77,11 +113,15 @@ const register = async (username, email, password) => {
 const logout = () => {
     localStorage.removeItem('token');
     localStorage.removeItem('user');
+    sessionStorage.clear(); // Limpar cache de mensagens
     window.location.href = '/';
 };
 
 // Event Listeners
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
+    // Verificar autenticação primeiro
+    await checkAuthentication();
+
     const loginForm = document.getElementById('loginForm');
     const registerForm = document.getElementById('registerForm');
 
@@ -111,10 +151,5 @@ document.addEventListener('DOMContentLoaded', () => {
 
             register(username, email, password);
         });
-    }
-
-    // Verificar autenticação na página de chat
-    if (window.location.pathname.includes('chat.html')) {
-        isAuthenticated();
     }
 }); 
