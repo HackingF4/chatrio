@@ -488,18 +488,17 @@ const toggleTheme = () => {
 };
 
 // Função para atualizar foto de perfil
-const updateProfilePhoto = async (photoData) => {
+const updateProfilePhoto = async (file) => {
     try {
-        // Remover o prefixo "data:image/..." da string base64 se existir
-        const base64Data = photoData.includes('base64,') ? photoData.split('base64,')[1] : photoData;
-
+        const compressedImage = await compressImage(file);
+        
         const response = await fetch(`${API_URL}/auth/profile-photo`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
                 'Authorization': `Bearer ${getToken()}`
             },
-            body: JSON.stringify({ photoData: `data:image/jpeg;base64,${base64Data}` })
+            body: JSON.stringify({ photoData: compressedImage })
         });
 
         const data = await response.json();
@@ -512,24 +511,34 @@ const updateProfilePhoto = async (photoData) => {
         const user = JSON.parse(localStorage.getItem('user'));
         user.profileImage = data.profileImage;
         localStorage.setItem('user', JSON.stringify(user));
+        currentUser = user;
 
         // Atualizar foto na interface
-        document.getElementById('userAvatar').src = data.profileImage;
+        const userAvatar = document.getElementById('userAvatar');
+        if (userAvatar) {
+            userAvatar.src = data.profileImage;
+        }
 
         // Fechar modal
-        document.getElementById('profileModal').style.display = 'none';
+        const modal = document.getElementById('profileModal');
+        if (modal) {
+            modal.style.display = 'none';
+        }
 
         // Notificar outros usuários
-        socket.emit('user connected', {
-            id: user.id,
-            username: user.username,
-            profileImage: user.profileImage,
-            role: user.role,
-            isMuted: user.isMuted
-        });
+        if (socket && socket.connected) {
+            socket.emit('user connected', {
+                id: user.id,
+                username: user.username,
+                profileImage: user.profileImage,
+                role: user.role,
+                isMuted: user.isMuted
+            });
+        }
 
+        alert('Foto de perfil atualizada com sucesso!');
     } catch (error) {
-        console.error('Erro detalhado:', error);
+        console.error('Erro ao atualizar foto:', error);
         alert('Erro ao atualizar foto de perfil: ' + error.message);
     }
 };
@@ -688,8 +697,48 @@ document.addEventListener('DOMContentLoaded', () => {
 // Configurar interface do usuário
 const setupUserInterface = () => {
     // Atualizar informações do usuário
-    document.getElementById('username').textContent = currentUser.username;
-    document.getElementById('userAvatar').src = currentUser.profileImage || 'https://www.gravatar.com/avatar/00000000000000000000000000000000?d=mp&f=y';
+    const usernameElement = document.getElementById('username');
+    const userAvatar = document.getElementById('userAvatar');
+    
+    if (usernameElement) {
+        usernameElement.textContent = currentUser.username;
+    }
+    
+    if (userAvatar) {
+        userAvatar.src = currentUser.profileImage || 'https://www.gravatar.com/avatar/00000000000000000000000000000000?d=mp&f=y';
+        
+        // Configurar upload de foto de perfil
+        const avatarContainer = document.querySelector('.avatar-container');
+        if (avatarContainer) {
+            const fileInput = document.createElement('input');
+            fileInput.type = 'file';
+            fileInput.accept = 'image/*';
+            fileInput.style.display = 'none';
+            
+            avatarContainer.appendChild(fileInput);
+            
+            avatarContainer.onclick = () => fileInput.click();
+            
+            fileInput.onchange = async (e) => {
+                const file = e.target.files[0];
+                if (!file) return;
+                
+                if (!file.type.startsWith('image/')) {
+                    alert('Por favor, selecione apenas imagens.');
+                    return;
+                }
+                
+                try {
+                    await updateProfilePhoto(file);
+                } catch (error) {
+                    console.error('Erro ao processar imagem:', error);
+                    alert('Erro ao processar imagem');
+                }
+                
+                fileInput.value = '';
+            };
+        }
+    }
 
     // Configurar painel de administração
     const adminPanelButton = document.getElementById('adminPanelButton');
@@ -705,45 +754,51 @@ const setupUserInterface = () => {
         });
     }
 
-    // Adicionar botão de imagem
+    // Adicionar botão de imagem no chat
     const messageForm = document.getElementById('messageForm');
     if (messageForm) {
-        const imageButton = document.createElement('button');
-        imageButton.type = 'button';
-        imageButton.className = 'image-button';
-        imageButton.innerHTML = '<i class="fas fa-image"></i>';
-        imageButton.title = 'Enviar imagem';
-        
-        const imageInput = document.createElement('input');
-        imageInput.type = 'file';
-        imageInput.accept = 'image/*';
-        imageInput.style.display = 'none';
-        
-        imageButton.onclick = () => imageInput.click();
-        
-        imageInput.onchange = async (e) => {
-            const file = e.target.files[0];
-            if (!file) return;
-            
-            if (!file.type.startsWith('image/')) {
-                alert('Por favor, selecione apenas imagens.');
-                return;
-            }
-            
-            try {
-                const compressedImage = await compressImage(file);
-                sendMessage(compressedImage, 'image');
-            } catch (error) {
-                console.error('Erro ao processar imagem:', error);
-                alert('Erro ao processar imagem');
-            }
-            
-            imageInput.value = '';
-        };
-        
         const inputWrapper = messageForm.querySelector('.input-wrapper');
-        inputWrapper.insertBefore(imageButton, inputWrapper.firstChild);
-        messageForm.appendChild(imageInput);
+        if (inputWrapper) {
+            // Criar botão de imagem
+            const imageButton = document.createElement('button');
+            imageButton.type = 'button';
+            imageButton.className = 'image-button';
+            imageButton.innerHTML = '<i class="fas fa-image"></i>';
+            imageButton.title = 'Enviar imagem';
+            
+            // Criar input de arquivo
+            const imageInput = document.createElement('input');
+            imageInput.type = 'file';
+            imageInput.accept = 'image/*';
+            imageInput.style.display = 'none';
+            
+            // Adicionar event listeners
+            imageButton.onclick = () => imageInput.click();
+            
+            imageInput.onchange = async (e) => {
+                const file = e.target.files[0];
+                if (!file) return;
+                
+                if (!file.type.startsWith('image/')) {
+                    alert('Por favor, selecione apenas imagens.');
+                    return;
+                }
+                
+                try {
+                    const compressedImage = await compressImage(file);
+                    sendMessage(compressedImage, 'image');
+                } catch (error) {
+                    console.error('Erro ao processar imagem:', error);
+                    alert('Erro ao processar imagem');
+                }
+                
+                imageInput.value = '';
+            };
+            
+            // Adicionar elementos ao DOM
+            inputWrapper.insertBefore(imageButton, inputWrapper.firstChild);
+            messageForm.appendChild(imageInput);
+        }
     }
 };
 

@@ -392,32 +392,126 @@ body:not(.light-theme) emoji-picker {
 /* Avatar container com hover effect */
 .avatar-container {
     position: relative;
-    cursor: pointer;
+    width: 40px;
+    height: 40px;
     border-radius: 50%;
     overflow: hidden;
+    cursor: pointer;
+    transition: opacity 0.3s ease;
 }
 
-.avatar-overlay {
+.avatar-container:hover {
+    opacity: 0.8;
+}
+
+.avatar-container:hover::after {
+    content: '\f030';
+    font-family: 'Font Awesome 5 Free';
+    font-weight: 900;
     position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    color: white;
+    font-size: 16px;
+    text-shadow: 0 0 3px rgba(0, 0, 0, 0.5);
+}
+
+.avatar-container img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.image-button {
+    background: none;
+    border: none;
+    color: #7289da;
+    font-size: 1.2em;
+    padding: 8px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    margin-right: 8px;
+}
+
+.image-button:hover {
+    color: #5b6eae;
+    transform: scale(1.1);
+}
+
+.shared-image {
+    max-width: 300px;
+    max-height: 300px;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: transform 0.2s ease;
+    margin-top: 5px;
+}
+
+.shared-image:hover {
+    transform: scale(1.02);
+}
+
+.image-modal {
+    position: fixed;
     top: 0;
     left: 0;
     width: 100%;
     height: 100%;
-    background: rgba(0, 0, 0, 0.5);
+    background-color: rgba(0, 0, 0, 0.9);
     display: flex;
     align-items: center;
     justify-content: center;
-    opacity: 0;
-    transition: opacity 0.2s;
+    z-index: 1000;
 }
 
-.avatar-container:hover .avatar-overlay {
-    opacity: 1;
+.image-modal .modal-content {
+    position: relative;
+    background: none;
+    box-shadow: none;
+    max-width: 90%;
+    max-height: 90vh;
 }
 
-.avatar-overlay i {
+.image-modal img {
+    max-width: 100%;
+    max-height: 90vh;
+    border-radius: 8px;
+    object-fit: contain;
+}
+
+.image-modal .close {
+    position: absolute;
+    top: -30px;
+    right: -30px;
     color: white;
-    font-size: 1.2em;
+    font-size: 30px;
+    cursor: pointer;
+    z-index: 1001;
+    background: none;
+    border: none;
+    padding: 5px;
+}
+
+.image-modal .close:hover {
+    color: #ddd;
+}
+
+.input-wrapper {
+    display: flex;
+    align-items: center;
+    background: var(--background-secondary);
+    border-radius: 4px;
+    padding: 8px;
+    margin-top: 10px;
+}
+
+.input-wrapper .image-button {
+    color: var(--text-muted);
+}
+
+.input-wrapper .image-button:hover {
+    color: var(--text-normal);
 }
 
 /* Modal */
