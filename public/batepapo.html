@@ -100,24 +100,26 @@
         </div>
     </div>
 
-    <!-- Modal de Perfil -->
+    <!-- Modal de Upload de Foto -->
     <div id="profileModal" class="modal">
         <div class="modal-content">
             <div class="modal-header">
                 <h2>Alterar Foto de Perfil</h2>
-                <span class="close">&times;</span>
+                <span class="close" onclick="document.getElementById('profileModal').style.display='none'">&times;</span>
             </div>
             <div class="modal-body">
-                <div class="preview-container">
-                    <div class="preview-circle">
-                        <span>Preview</span>
+                <div class="upload-area" id="uploadArea">
+                    <input type="file" id="photoInput" accept="image/*" style="display: none">
+                    <div class="upload-preview">
+                        <img id="previewImage" src="" alt="Preview">
                     </div>
-                    <input type="file" id="photoInput" accept="image/*" style="display: none;">
-                    <button class="choose-photo" onclick="document.getElementById('photoInput').click()">Escolher Foto</button>
+                    <button type="button" class="upload-button" onclick="document.getElementById('photoInput').click()">
+                        <i class="fas fa-upload"></i> Escolher Foto
+                    </button>
                 </div>
-                <div class="modal-footer">
-                    <button class="cancel-btn" onclick="closeProfileModal()">Cancelar</button>
-                    <button class="save-btn" onclick="uploadProfilePhoto()">Salvar</button>
+                <div class="upload-actions">
+                    <button type="button" class="btn-secondary" onclick="document.getElementById('profileModal').style.display='none'">Cancelar</button>
+                    <button type="button" class="btn-primary" onclick="uploadProfilePhoto()">Salvar</button>
                 </div>
             </div>
         </div>

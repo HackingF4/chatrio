@@ -621,6 +621,36 @@ window.clearChat = async function() {
     }
 };
 
+// Função para configurar preview da foto
+function setupPhotoPreview() {
+    const photoInput = document.getElementById('photoInput');
+    const previewImage = document.getElementById('previewImage');
+    
+    if (!photoInput || !previewImage) return;
+    
+    // Mostrar foto atual no preview se existir
+    const currentUser = JSON.parse(localStorage.getItem('user'));
+    if (currentUser && currentUser.profileImage) {
+        previewImage.src = currentUser.profileImage;
+        previewImage.style.display = 'block';
+    }
+    
+    photoInput.addEventListener('change', function(e) {
+        const file = e.target.files[0];
+        if (!file) {
+            previewImage.style.display = 'none';
+            return;
+        }
+        
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            previewImage.src = e.target.result;
+            previewImage.style.display = 'block';
+        };
+        reader.readAsDataURL(file);
+    });
+}
+
 // Função para fazer upload da foto de perfil
 window.uploadProfilePhoto = async () => {
     const photoInput = document.getElementById('photoInput');
@@ -631,16 +661,19 @@ window.uploadProfilePhoto = async () => {
         return;
     }
     
-    const formData = new FormData();
-    formData.append('photoData', file);
-    
     try {
+        // Comprimir a imagem antes do upload
+        const compressedImage = await compressImage(file);
+        
+        const formData = new FormData();
+        formData.append('photoData', compressedImage);
+        
         const response = await fetch(`${API_URL}/auth/profile-photo`, {
             method: 'POST',
             headers: {
-                'Authorization': `Bearer ${localStorage.getItem('token')}`
+                'Authorization': `Bearer ${getToken()}`
             },
-            body: formData
+            body: JSON.stringify({ photoData: compressedImage })
         });
         
         if (!response.ok) {
@@ -648,15 +681,24 @@ window.uploadProfilePhoto = async () => {
         }
         
         const data = await response.json();
+        
+        // Atualizar foto no localStorage
         const currentUser = JSON.parse(localStorage.getItem('user'));
         currentUser.profileImage = data.profileImage;
         localStorage.setItem('user', JSON.stringify(currentUser));
         
+        // Atualizar foto na interface
         document.getElementById('userAvatar').src = data.profileImage;
+        
+        // Fechar modal
         document.getElementById('profileModal').style.display = 'none';
         
+        // Notificar outros usuários
         if (socket && socket.connected) {
-            socket.emit('profile photo updated', { userId: currentUser._id, profileImage: data.profileImage });
+            socket.emit('profile photo updated', { 
+                userId: currentUser._id, 
+                profileImage: data.profileImage 
+            });
         }
         
         alert('Foto de perfil atualizada com sucesso!');
@@ -958,28 +1000,6 @@ socket.on('user left', (user) => {
     console.log('Usuário saiu:', user);
     socket.emit('get users');
 });
-
-function setupPhotoPreview() {
-    const photoInput = document.getElementById('photoInput');
-    const previewImage = document.getElementById('previewImage');
-    
-    if (!photoInput || !previewImage) return;
-    
-    photoInput.addEventListener('change', function(e) {
-        const file = e.target.files[0];
-        if (!file) {
-            previewImage.style.display = 'none';
-            return;
-        }
-        
-        const reader = new FileReader();
-        reader.onload = function(e) {
-            previewImage.src = e.target.result;
-            previewImage.style.display = 'block';
-        };
-        reader.readAsDataURL(file);
-    });
-}
 
 // Função para abrir o modal de perfil
 const openProfileModal = () => {
