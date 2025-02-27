@@ -43,12 +43,13 @@ const initializeSocket = () => {
     
     socket = io(SOCKET_URL, {
         auth: { token: getToken() },
-        transports: ['websocket'],
+        transports: ['websocket', 'polling'],
         reconnection: true,
         reconnectionAttempts: 5,
         reconnectionDelay: 1000,
         timeout: 10000,
-        forceNew: true
+        forceNew: true,
+        withCredentials: true
     });
 
     // Configurar event listeners do socket
@@ -476,16 +477,19 @@ const updateProfilePhoto = async (photoData) => {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
-                'Authorization': `Bearer ${getToken()}`
+                'Authorization': `Bearer ${getToken()}`,
+                'Accept': 'application/json'
             },
-            body: JSON.stringify({ photoData: `data:image/jpeg;base64,${base64Data}` })
+            credentials: 'include',
+            body: JSON.stringify({ photoData: base64Data })
         });
 
-        const data = await response.json();
-
         if (!response.ok) {
-            throw new Error(data.message || 'Erro ao atualizar foto');
+            const errorData = await response.json();
+            throw new Error(errorData.message || 'Erro ao atualizar foto');
         }
+
+        const data = await response.json();
         
         // Atualizar foto no localStorage
         const user = JSON.parse(localStorage.getItem('user'));
@@ -499,14 +503,17 @@ const updateProfilePhoto = async (photoData) => {
         document.getElementById('profileModal').style.display = 'none';
 
         // Notificar outros usuários
-        socket.emit('user connected', {
-            id: user.id,
-            username: user.username,
-            profileImage: user.profileImage,
-            role: user.role,
-            isMuted: user.isMuted
-        });
+        if (socket && socket.connected) {
+            socket.emit('user connected', {
+                id: user.id,
+                username: user.username,
+                profileImage: user.profileImage,
+                role: user.role,
+                isMuted: user.isMuted
+            });
+        }
 
+        alert('Foto de perfil atualizada com sucesso!');
     } catch (error) {
         console.error('Erro detalhado:', error);
         alert('Erro ao atualizar foto de perfil: ' + error.message);
@@ -538,18 +545,18 @@ window.uploadProfilePhoto = async () => {
         }
         
         // Comprimir a imagem antes do upload
-        const compressedImage = await compressImage(file, 800); // Reduzir para 800px de largura máxima
+        const compressedImage = await compressImage(file, 800);
         
         const response = await fetch(`${API_URL}/auth/profile-photo`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
-                'Authorization': `Bearer ${getToken()}`
+                'Authorization': `Bearer ${getToken()}`,
+                'Accept': 'application/json'
             },
+            credentials: 'include',
             body: JSON.stringify({ 
-                photoData: compressedImage,
-                fileName: file.name,
-                fileType: file.type
+                photoData: compressedImage
             })
         });
         
