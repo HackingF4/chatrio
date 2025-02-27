@@ -465,12 +465,14 @@ body:not(.light-theme) emoji-picker {
     color: var(--text-color);
 }
 
+/* Estilos do Modal de Foto de Perfil */
 .upload-area {
     text-align: center;
     padding: 20px;
     border: 2px dashed var(--border-color);
     border-radius: 5px;
     margin-bottom: 20px;
+    background-color: var(--background-darker);
 }
 
 .upload-preview {
@@ -481,6 +483,7 @@ body:not(.light-theme) emoji-picker {
     overflow: hidden;
     position: relative;
     background-color: var(--background-darker);
+    border: 2px solid var(--primary-color);
 }
 
 .upload-preview img {
@@ -491,17 +494,25 @@ body:not(.light-theme) emoji-picker {
 }
 
 .upload-button {
-    background-color: var(--background-darker);
-    color: var(--text-color);
+    background-color: var(--primary-color);
+    color: white;
     border: none;
     padding: 10px 20px;
     border-radius: 4px;
     cursor: pointer;
     transition: background-color 0.2s;
+    font-size: 14px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
 }
 
 .upload-button:hover {
-    background-color: var(--background-tertiary);
+    background-color: #5b73c7;
+}
+
+.upload-button i {
+    font-size: 16px;
 }
 
 .upload-actions {

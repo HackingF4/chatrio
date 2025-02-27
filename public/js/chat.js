@@ -625,6 +625,7 @@ window.clearChat = async function() {
 function setupPhotoPreview() {
     const photoInput = document.getElementById('photoInput');
     const previewImage = document.getElementById('previewImage');
+    const uploadArea = document.querySelector('.upload-area');
     
     if (!photoInput || !previewImage) return;
     
@@ -635,19 +636,33 @@ function setupPhotoPreview() {
         previewImage.style.display = 'block';
     }
     
-    photoInput.addEventListener('change', function(e) {
+    photoInput.addEventListener('change', async function(e) {
         const file = e.target.files[0];
         if (!file) {
             previewImage.style.display = 'none';
             return;
         }
         
-        const reader = new FileReader();
-        reader.onload = function(e) {
-            previewImage.src = e.target.result;
+        try {
+            // Comprimir a imagem antes de mostrar o preview
+            const compressedImage = await compressImage(file);
+            previewImage.src = compressedImage;
             previewImage.style.display = 'block';
-        };
-        reader.readAsDataURL(file);
+            
+            // Ajustar estilo do preview
+            previewImage.style.width = '100%';
+            previewImage.style.height = '100%';
+            previewImage.style.objectFit = 'cover';
+            
+            // Mostrar botões de ação
+            const uploadActions = document.querySelector('.upload-actions');
+            if (uploadActions) {
+                uploadActions.style.display = 'flex';
+            }
+        } catch (error) {
+            console.error('Erro ao gerar preview:', error);
+            alert('Erro ao gerar preview da imagem. Por favor, tente novamente.');
+        }
     });
 }
 
@@ -662,6 +677,13 @@ window.uploadProfilePhoto = async () => {
     }
     
     try {
+        // Mostrar loading
+        const saveButton = document.querySelector('.btn-primary');
+        if (saveButton) {
+            saveButton.disabled = true;
+            saveButton.textContent = 'Salvando...';
+        }
+        
         // Comprimir a imagem antes do upload
         const compressedImage = await compressImage(file);
         
@@ -703,6 +725,13 @@ window.uploadProfilePhoto = async () => {
     } catch (error) {
         console.error('Erro ao fazer upload da foto:', error);
         alert('Erro ao fazer upload da foto. Por favor, tente novamente.');
+    } finally {
+        // Restaurar botão
+        const saveButton = document.querySelector('.btn-primary');
+        if (saveButton) {
+            saveButton.disabled = false;
+            saveButton.textContent = 'Salvar';
+        }
     }
 };
 
