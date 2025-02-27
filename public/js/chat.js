@@ -699,43 +699,31 @@ window.uploadProfilePhoto = async () => {
 function setupPhotoPreview() {
     const photoInput = document.getElementById('photoInput');
     const previewImage = document.getElementById('previewImage');
-    
+    const uploadActions = document.querySelector('.upload-actions');
+
     if (!photoInput || !previewImage) return;
-    
-    // Mostrar foto atual no preview se existir
-    const currentUser = JSON.parse(localStorage.getItem('user'));
-    if (currentUser && currentUser.profileImage) {
-        previewImage.src = currentUser.profileImage;
-        previewImage.style.display = 'block';
-        previewImage.classList.add('visible');
-    }
-    
-    photoInput.addEventListener('change', async function(e) {
+
+    photoInput.addEventListener('change', async (e) => {
         const file = e.target.files[0];
         if (!file) {
-            previewImage.style.display = 'none';
+            previewImage.src = '';
             previewImage.classList.remove('visible');
+            uploadActions.classList.remove('visible');
             return;
         }
-        
+
         try {
+            // Criar URL para preview
             const reader = new FileReader();
             reader.onload = function(e) {
                 previewImage.src = e.target.result;
-                previewImage.style.display = 'block';
                 previewImage.classList.add('visible');
+                uploadActions.classList.add('visible');
             };
             reader.readAsDataURL(file);
-            
-            // Mostrar botões de ação
-            const uploadActions = document.querySelector('.upload-actions');
-            if (uploadActions) {
-                uploadActions.style.display = 'flex';
-                uploadActions.classList.add('visible');
-            }
         } catch (error) {
             console.error('Erro ao gerar preview:', error);
-            alert('Erro ao gerar preview da imagem. Por favor, tente novamente.');
+            alert('Erro ao gerar preview da imagem');
         }
     });
 }
