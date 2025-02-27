@@ -104,15 +104,20 @@
     <div id="profileModal" class="modal">
         <div class="modal-content">
             <div class="modal-header">
-                <h2>Atualizar Foto de Perfil</h2>
+                <h2>Alterar Foto de Perfil</h2>
                 <span class="close">&times;</span>
             </div>
             <div class="modal-body">
-                <div class="upload-area">
-                    <img id="previewImage" src="" alt="" style="max-width: 200px; max-height: 200px; display: none;">
+                <div class="preview-container">
+                    <div class="preview-circle">
+                        <span>Preview</span>
+                    </div>
                     <input type="file" id="photoInput" accept="image/*" style="display: none;">
-                    <button type="button" onclick="document.getElementById('photoInput').click()">Escolher Foto</button>
-                    <button type="button" onclick="uploadProfilePhoto()">Salvar</button>
+                    <button class="choose-photo" onclick="document.getElementById('photoInput').click()">Escolher Foto</button>
+                </div>
+                <div class="modal-footer">
+                    <button class="cancel-btn" onclick="closeProfileModal()">Cancelar</button>
+                    <button class="save-btn" onclick="uploadProfilePhoto()">Salvar</button>
                 </div>
             </div>
         </div>

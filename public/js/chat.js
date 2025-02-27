@@ -979,4 +979,44 @@ function setupPhotoPreview() {
         };
         reader.readAsDataURL(file);
     });
-} 
+}
+
+// Função para abrir o modal de perfil
+const openProfileModal = () => {
+    const modal = document.getElementById('profileModal');
+    modal.style.display = 'block';
+};
+
+// Função para fechar o modal de perfil
+const closeProfileModal = () => {
+    const modal = document.getElementById('profileModal');
+    modal.style.display = 'none';
+    resetPreview();
+};
+
+// Função para resetar o preview
+const resetPreview = () => {
+    const previewCircle = document.querySelector('.preview-circle');
+    previewCircle.innerHTML = '<span>Preview</span>';
+};
+
+// Função para mostrar preview da imagem
+document.getElementById('photoInput').addEventListener('change', function(e) {
+    const file = e.target.files[0];
+    if (file) {
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            const previewCircle = document.querySelector('.preview-circle');
+            previewCircle.innerHTML = `<img src="${e.target.result}" alt="Preview">`;
+        };
+        reader.readAsDataURL(file);
+    }
+});
+
+// Fechar modal quando clicar no X ou fora do modal
+window.onclick = function(event) {
+    const modal = document.getElementById('profileModal');
+    if (event.target == modal || event.target.classList.contains('close')) {
+        closeProfileModal();
+    }
+}; 
