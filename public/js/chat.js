@@ -959,7 +959,7 @@ socket.on('user left', (user) => {
     socket.emit('get users');
 });
 
-const setupPhotoPreview = () => {
+function setupPhotoPreview() {
     const photoInput = document.getElementById('photoInput');
     const previewImage = document.getElementById('previewImage');
     
@@ -967,7 +967,10 @@ const setupPhotoPreview = () => {
     
     photoInput.addEventListener('change', function(e) {
         const file = e.target.files[0];
-        if (!file) return;
+        if (!file) {
+            previewImage.style.display = 'none';
+            return;
+        }
         
         const reader = new FileReader();
         reader.onload = function(e) {
@@ -976,4 +979,4 @@ const setupPhotoPreview = () => {
         };
         reader.readAsDataURL(file);
     });
-}; 
+} 
