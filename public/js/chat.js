@@ -789,6 +789,36 @@ const setupUserInterface = () => {
     }
 };
 
+// Função para enviar imagem no chat
+async function handleChatImage(file) {
+    try {
+        // Converter arquivo para base64
+        const base64 = await new Promise((resolve) => {
+            const reader = new FileReader();
+            reader.onload = (e) => resolve(e.target.result);
+            reader.readAsDataURL(file);
+        });
+
+        // Enviar mensagem com a imagem
+        if (socket && socket.connected) {
+            socket.emit('chat message', {
+                room: currentRoom,
+                message: {
+                    type: 'image',
+                    imageUrl: base64,
+                    sender: {
+                        username: currentUser.username,
+                        profileImage: currentUser.profileImage
+                    }
+                }
+            });
+        }
+    } catch (error) {
+        console.error('Erro ao enviar imagem:', error);
+        alert('Erro ao enviar imagem. Por favor, tente novamente.');
+    }
+}
+
 // Configurar event listeners
 const setupEventListeners = () => {
     // Event listener para logout
@@ -815,6 +845,28 @@ const setupEventListeners = () => {
             changeRoom(newRoom);
         }
     });
+
+    // Event listener para envio de imagem no chat
+    const imageButton = document.querySelector('.image-button');
+    const chatImageInput = document.getElementById('chatImageInput');
+
+    if (imageButton && chatImageInput) {
+        imageButton.addEventListener('click', () => {
+            chatImageInput.click();
+        });
+
+        chatImageInput.addEventListener('change', async (e) => {
+            const file = e.target.files[0];
+            if (file) {
+                if (file.size > 5 * 1024 * 1024) { // 5MB
+                    alert('A imagem é muito grande. Por favor, selecione uma imagem menor que 5MB.');
+                    return;
+                }
+                await handleChatImage(file);
+                chatImageInput.value = ''; // Limpar input
+            }
+        });
+    }
 
     // Configurar emoji picker
     setupEmojiPicker();
