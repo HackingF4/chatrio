@@ -621,10 +621,43 @@ window.clearChat = async function() {
     }
 };
 
+// Função para configurar preview da foto
+function setupPhotoPreview() {
+    const fileInput = document.getElementById('fileInput');
+    const imagePreview = document.getElementById('imagePreview');
+    const uploadActions = document.querySelector('.upload-actions');
+
+    if (!fileInput || !imagePreview) {
+        console.error('Elementos de foto não encontrados');
+        return;
+    }
+
+    fileInput.addEventListener('change', function(e) {
+        const file = e.target.files[0];
+        if (!file) {
+            imagePreview.classList.remove('visible');
+            uploadActions.classList.remove('visible');
+            return;
+        }
+
+        // Criar URL para preview
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            imagePreview.src = e.target.result;
+            imagePreview.classList.add('visible');
+            uploadActions.classList.add('visible');
+        };
+        reader.readAsDataURL(file);
+    });
+
+    // Configurar botão de salvar
+    document.getElementById('saveProfilePhoto').addEventListener('click', uploadProfilePhoto);
+}
+
 // Função para fazer upload da foto de perfil
 window.uploadProfilePhoto = async () => {
-    const photoInput = document.getElementById('photoInput');
-    const file = photoInput.files[0];
+    const fileInput = document.getElementById('fileInput');
+    const file = fileInput.files[0];
     
     if (!file) {
         alert('Por favor, selecione uma foto primeiro.');
@@ -633,7 +666,7 @@ window.uploadProfilePhoto = async () => {
     
     try {
         // Mostrar loading
-        const saveButton = document.querySelector('.btn-primary');
+        const saveButton = document.getElementById('saveProfilePhoto');
         if (saveButton) {
             saveButton.disabled = true;
             saveButton.textContent = 'Salvando...';
@@ -686,43 +719,13 @@ window.uploadProfilePhoto = async () => {
         alert('Erro ao fazer upload da foto. Por favor, tente novamente.');
     } finally {
         // Restaurar botão
-        const saveButton = document.querySelector('.btn-primary');
+        const saveButton = document.getElementById('saveProfilePhoto');
         if (saveButton) {
             saveButton.disabled = false;
             saveButton.textContent = 'Salvar';
         }
     }
 };
-
-// Função para configurar preview da foto
-function setupPhotoPreview() {
-    const photoInput = document.getElementById('photoInput');
-    const previewImage = document.getElementById('previewImage');
-    const uploadActions = document.querySelector('.upload-actions');
-
-    if (!photoInput || !previewImage) {
-        console.error('Elementos de foto não encontrados');
-        return;
-    }
-
-    photoInput.addEventListener('change', function(e) {
-        const file = e.target.files[0];
-        if (!file) {
-            previewImage.style.display = 'none';
-            uploadActions.style.display = 'none';
-            return;
-        }
-
-        // Criar URL para preview
-        const reader = new FileReader();
-        reader.onload = function(e) {
-            previewImage.src = e.target.result;
-            previewImage.style.display = 'block';
-            uploadActions.style.display = 'flex';
-        };
-        reader.readAsDataURL(file);
-    });
-}
 
 // Event Listeners
 document.addEventListener('DOMContentLoaded', () => {
