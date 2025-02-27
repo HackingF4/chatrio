@@ -665,12 +665,10 @@ window.uploadProfilePhoto = async () => {
         // Comprimir a imagem antes do upload
         const compressedImage = await compressImage(file);
         
-        const formData = new FormData();
-        formData.append('photoData', compressedImage);
-        
         const response = await fetch(`${API_URL}/auth/profile-photo`, {
             method: 'POST',
             headers: {
+                'Content-Type': 'application/json',
                 'Authorization': `Bearer ${getToken()}`
             },
             body: JSON.stringify({ photoData: compressedImage })
