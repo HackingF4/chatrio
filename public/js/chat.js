@@ -862,11 +862,51 @@ document.addEventListener('DOMContentLoaded', () => {
 
         currentUser = JSON.parse(savedUser);
         
+        // Inicializar Socket.IO
+        socket = io(SOCKET_URL, {
+            auth: { token: getToken() },
+            transports: ['websocket'],
+            reconnection: true,
+            reconnectionAttempts: 5,
+            reconnectionDelay: 1000,
+            timeout: 10000
+        });
+
+        // Configurar eventos do socket
+        socket.on('connect', () => {
+            console.log('Conectado ao servidor');
+            socket.emit('user connected', currentUser);
+            socket.emit('join room', currentRoom);
+            socket.emit('get users');
+        });
+
+        socket.on('disconnect', () => {
+            console.log('Desconectado do servidor');
+        });
+
+        socket.on('connect_error', (error) => {
+            console.error('Erro de conexão:', error);
+        });
+
+        socket.on('new message', (message) => {
+            if (message.room === currentRoom) {
+                const container = document.getElementById('messageContainer');
+                if (container) {
+                    const messageElement = createMessageElement(message);
+                    container.appendChild(messageElement);
+                    scrollToBottom();
+                }
+            }
+        });
+
+        socket.on('users online', (users) => {
+            if (Array.isArray(users)) {
+                updateOnlineUsers(users);
+            }
+        });
+        
         // Configurar interface do usuário
         setupUserInterface();
-        
-        // Inicializar Socket.IO
-        socket = initializeSocket();
         
         // Configurar eventos
         setupEventListeners();
@@ -882,40 +922,31 @@ document.addEventListener('DOMContentLoaded', () => {
                 const messageInput = document.getElementById('messageInput');
                 const message = messageInput.value.trim();
                 
-                if (message && socket && socket.connected) {
-                    sendMessage(message);
+                if (message) {
+                    socket.emit('chat message', {
+                        room: currentRoom,
+                        message: {
+                            content: message,
+                            type: 'text',
+                            sender: {
+                                username: currentUser.username,
+                                profileImage: currentUser.profileImage
+                            }
+                        }
+                    });
+                    
+                    messageInput.value = '';
+                    messageInput.focus();
                 }
             });
         }
 
-        // Configurar botão de chamada
-        const voiceCallButton = document.getElementById('voiceCallButton');
-        if (voiceCallButton) {
-            voiceCallButton.addEventListener('click', () => {
-                const targetUser = prompt('Digite o ID do usuário para chamar:');
-                if (targetUser && targetUser.trim()) {
-                    console.log('Iniciando chamada para:', targetUser);
-                    startCall(targetUser.trim());
-                }
-            });
-        }
-
-        // Configurar botões de controle de chamada
-        const muteButton = document.getElementById('muteButton');
-        const endCallButton = document.getElementById('endCallButton');
-
-        if (muteButton) {
-            muteButton.addEventListener('click', toggleMute);
-        }
-
-        if (endCallButton) {
-            endCallButton.addEventListener('click', endCall);
-        }
+        // Carregar mensagens iniciais
+        loadMessages();
         
     } catch (error) {
         console.error('Erro ao inicializar chat:', error);
-        localStorage.clear();
-        window.location.href = '/';
+        alert('Erro ao inicializar chat. Por favor, tente novamente.');
     }
 });
 
