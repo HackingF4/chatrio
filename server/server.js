@@ -8,6 +8,8 @@ const socketIo = require('socket.io');
 const path = require('path');
 const cloudinary = require('cloudinary').v2;
 const { v4: uuidv4 } = require('uuid');
+const User = require('./models/user');
+const jwt = require('jsonwebtoken');
 
 const app = express();
 const server = http.createServer(app);
@@ -90,6 +92,33 @@ const cleanMessageCache = () => {
     const oldestEntries = entries.slice(0, entries.length - MESSAGE_CACHE_SIZE);
     oldestEntries.forEach(([key]) => messageCache.delete(key));
   }
+};
+
+// Middleware de autenticação
+const authenticateToken = async (req, res, next) => {
+    try {
+        const token = req.header('Authorization')?.replace('Bearer ', '');
+        if (!token) {
+            return res.status(401).json({ message: 'Token não fornecido' });
+        }
+
+        const decoded = jwt.verify(token, process.env.JWT_SECRET || 'seu_jwt_secret');
+        const user = await User.findById(decoded.userId);
+        
+        if (!user) {
+            return res.status(401).json({ message: 'Usuário não encontrado' });
+        }
+
+        req.user = {
+            id: user._id,
+            role: user.role
+        };
+        
+        next();
+    } catch (error) {
+        console.error('Erro na autenticação:', error);
+        res.status(401).json({ message: 'Token inválido' });
+    }
 };
 
 io.on('connection', (socket) => {

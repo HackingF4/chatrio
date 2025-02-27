@@ -214,7 +214,7 @@ const checkAndRenewToken = async () => {
 
 // Função para fazer logout
 const logout = () => {
-    // Desconectar do Socket.io
+    // Desconectar do Socket.IO
     if (socket) {
         socket.disconnect();
     }

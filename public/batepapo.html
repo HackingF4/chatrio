@@ -24,18 +24,18 @@
             </div>
             <div class="user-info">
                 <div class="avatar-container" onclick="document.getElementById('profileModal').style.display='block'">
-                    <img id="userAvatar" src="https://www.gravatar.com/avatar/00000000000000000000000000000000?d=mp&f=y" alt="Avatar" class="avatar">
+                    <img src="" alt="Avatar" class="avatar" id="userAvatar">
                     <div class="avatar-overlay">
                         <i class="fas fa-camera"></i>
                     </div>
                 </div>
-                <span id="username">Carregando...</span>
+                <span id="username"></span>
                 <div class="user-actions">
                     <button id="adminPanelButton" class="admin-panel-button" style="display: none;">
                         <i class="fas fa-shield-alt"></i>
                         Painel Admin
                     </button>
-                    <button id="logoutButton" class="logout-button">
+                    <button id="logoutButton" class="logout-button" title="Sair">
                         <i class="fas fa-sign-out-alt"></i>
                     </button>
                 </div>
@@ -71,27 +71,25 @@
         <!-- Área principal do chat -->
         <div class="chat-main">
             <div class="chat-header">
-                <h2># <span id="currentChannel">geral</span></h2>
-                <div class="header-actions">
-                    <button id="themeToggle" class="theme-toggle">
-                        <i class="fas fa-moon"></i>
-                    </button>
-                </div>
+                <h2>Bate-papo 1</h2>
+                <button id="themeToggle" class="theme-toggle">
+                    <i class="fas fa-moon"></i>
+                </button>
             </div>
-
-            <div class="messages" id="messageContainer">
-                <!-- Mensagens serão preenchidas via JavaScript -->
-            </div>
-
+            <div class="messages" id="messageContainer"></div>
             <div class="message-input">
                 <form id="messageForm">
                     <div class="input-wrapper">
+                        <button type="button" class="image-button" title="Enviar imagem">
+                            <i class="fas fa-image"></i>
+                        </button>
+                        <input type="file" id="chatImageInput" accept="image/*" style="display: none">
                         <input type="text" id="messageInput" placeholder="Digite sua mensagem..." autocomplete="off">
                         <div class="emoji-wrapper">
                             <button type="button" id="emojiButton" class="emoji-button">
                                 <i class="far fa-smile"></i>
                             </button>
-                            <emoji-picker id="emojiPicker" class="light"></emoji-picker>
+                            <emoji-picker id="emojiPicker"></emoji-picker>
                         </div>
                     </div>
                     <button type="submit" class="send-button">
@@ -102,26 +100,30 @@
         </div>
     </div>
 
-    <!-- Modal de Upload de Foto -->
+    <!-- Modal de Perfil -->
     <div id="profileModal" class="modal">
         <div class="modal-content">
             <div class="modal-header">
-                <h2>Alterar Foto de Perfil</h2>
+                <h2>Atualizar Foto de Perfil</h2>
                 <span class="close" onclick="document.getElementById('profileModal').style.display='none'">&times;</span>
             </div>
             <div class="modal-body">
-                <div class="upload-area" id="uploadArea">
-                    <input type="file" id="fileInput" accept="image/*" style="display: none">
-                    <div class="upload-preview">
-                        <img id="imagePreview" src="" alt="Preview">
+                <div class="profile-photo-container">
+                    <div class="profile-photo-preview">
+                        <img id="previewImage" src="" alt="Preview" class="profile-photo-preview">
                     </div>
-                    <button type="button" class="upload-button" onclick="document.getElementById('fileInput').click()">
-                        <i class="fas fa-upload"></i> Escolher Foto
-                    </button>
-                </div>
-                <div class="upload-actions">
-                    <button type="button" class="btn-secondary" onclick="document.getElementById('profileModal').style.display='none'">Cancelar</button>
-                    <button type="button" class="btn-primary" id="saveProfilePhoto">Salvar</button>
+                    <input type="file" id="photoInput" accept="image/*" style="display: none">
+                    <div class="profile-photo-buttons">
+                        <button class="profile-photo-button" onclick="document.getElementById('photoInput').click()">
+                            <i class="fas fa-upload"></i> Escolher Foto
+                        </button>
+                        <button class="profile-photo-button" onclick="uploadProfilePhoto()">
+                            <i class="fas fa-save"></i> Salvar
+                        </button>
+                        <button class="profile-photo-button cancel" onclick="document.getElementById('profileModal').style.display='none'">
+                            <i class="fas fa-times"></i> Cancelar
+                        </button>
+                    </div>
                 </div>
             </div>
         </div>
