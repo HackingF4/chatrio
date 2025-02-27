@@ -623,35 +623,59 @@ window.clearChat = async function() {
 
 // Função para configurar preview da foto
 function setupPhotoPreview() {
+    const photoButton = document.querySelector('.photo-button');
     const fileInput = document.getElementById('fileInput');
     const imagePreview = document.getElementById('imagePreview');
     const uploadActions = document.querySelector('.upload-actions');
+    const profileModal = document.getElementById('profileModal');
 
-    if (!fileInput || !imagePreview) {
-        console.error('Elementos de foto não encontrados');
-        return;
+    // Event listener para o botão de foto
+    if (photoButton) {
+        photoButton.addEventListener('click', () => {
+            profileModal.style.display = 'block';
+        });
     }
 
-    fileInput.addEventListener('change', function(e) {
-        const file = e.target.files[0];
-        if (!file) {
-            imagePreview.classList.remove('visible');
-            uploadActions.classList.remove('visible');
-            return;
+    // Event listener para o input de arquivo
+    if (fileInput) {
+        fileInput.addEventListener('change', async function(e) {
+            const file = e.target.files[0];
+            if (!file) {
+                imagePreview.style.display = 'none';
+                uploadActions.style.display = 'none';
+                return;
+            }
+
+            try {
+                // Criar URL para preview
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    imagePreview.src = e.target.result;
+                    imagePreview.style.display = 'block';
+                    uploadActions.style.display = 'flex';
+                };
+                reader.readAsDataURL(file);
+            } catch (error) {
+                console.error('Erro ao carregar imagem:', error);
+                alert('Erro ao carregar imagem. Tente novamente.');
+            }
+        });
+    }
+
+    // Configurar botão de fechar modal
+    const closeButton = document.querySelector('.close');
+    if (closeButton) {
+        closeButton.addEventListener('click', () => {
+            profileModal.style.display = 'none';
+        });
+    }
+
+    // Fechar modal quando clicar fora
+    window.addEventListener('click', (event) => {
+        if (event.target === profileModal) {
+            profileModal.style.display = 'none';
         }
-
-        // Criar URL para preview
-        const reader = new FileReader();
-        reader.onload = function(e) {
-            imagePreview.src = e.target.result;
-            imagePreview.classList.add('visible');
-            uploadActions.classList.add('visible');
-        };
-        reader.readAsDataURL(file);
     });
-
-    // Configurar botão de salvar
-    document.getElementById('saveProfilePhoto').addEventListener('click', uploadProfilePhoto);
 }
 
 // Função para fazer upload da foto de perfil
@@ -837,6 +861,17 @@ const setupEventListeners = () => {
             emojiPicker.classList.toggle('light', !darkMode);
         }
     });
+
+    // Event listener para foto de perfil
+    const userAvatar = document.getElementById('userAvatar');
+    if (userAvatar) {
+        userAvatar.addEventListener('click', () => {
+            const profileModal = document.getElementById('profileModal');
+            if (profileModal) {
+                profileModal.style.display = 'block';
+            }
+        });
+    }
 
     // Event listener para seleção de canal
     document.getElementById('channelList')?.addEventListener('click', (e) => {
