@@ -513,8 +513,94 @@ const updateProfilePhoto = async (photoData) => {
     }
 };
 
+// Função para fazer upload da foto de perfil
+window.uploadProfilePhoto = async () => {
+    const fileInput = document.getElementById('fileInput');
+    const file = fileInput.files[0];
+    
+    if (!file) {
+        alert('Por favor, selecione uma foto primeiro.');
+        return;
+    }
+
+    // Verificar tamanho do arquivo
+    if (file.size > 5 * 1024 * 1024) { // 5MB
+        alert('A imagem é muito grande. Por favor, selecione uma imagem menor que 5MB.');
+        return;
+    }
+    
+    try {
+        // Mostrar loading
+        const saveButton = document.getElementById('saveProfilePhoto');
+        if (saveButton) {
+            saveButton.disabled = true;
+            saveButton.textContent = 'Salvando...';
+        }
+        
+        // Comprimir a imagem antes do upload
+        const compressedImage = await compressImage(file, 800); // Reduzir para 800px de largura máxima
+        
+        const response = await fetch(`${API_URL}/auth/profile-photo`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${getToken()}`
+            },
+            body: JSON.stringify({ 
+                photoData: compressedImage,
+                fileName: file.name,
+                fileType: file.type
+            })
+        });
+        
+        if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.message || 'Erro ao fazer upload da foto');
+        }
+        
+        const data = await response.json();
+        
+        // Atualizar foto no localStorage
+        const currentUser = JSON.parse(localStorage.getItem('user'));
+        currentUser.profileImage = data.profileImage;
+        localStorage.setItem('user', JSON.stringify(currentUser));
+        
+        // Atualizar foto na interface
+        const userAvatar = document.getElementById('userAvatar');
+        if (userAvatar) {
+            userAvatar.src = data.profileImage;
+        }
+        
+        // Fechar modal
+        const profileModal = document.getElementById('profileModal');
+        if (profileModal) {
+            profileModal.style.display = 'none';
+        }
+        
+        // Notificar outros usuários se o socket estiver conectado
+        if (socket && socket.connected) {
+            socket.emit('profile photo updated', { 
+                userId: currentUser._id, 
+                profileImage: data.profileImage 
+            });
+        }
+        
+        alert('Foto de perfil atualizada com sucesso!');
+    } catch (error) {
+        console.error('Erro detalhado ao fazer upload:', error);
+        alert(`Erro ao fazer upload da foto: ${error.message}`);
+    } finally {
+        // Restaurar botão
+        const saveButton = document.getElementById('saveProfilePhoto');
+        if (saveButton) {
+            saveButton.disabled = false;
+            saveButton.textContent = 'Salvar';
+        }
+    }
+};
+
 // Função para comprimir imagem
-const compressImage = async (file, maxWidth = 1024) => {
+const compressImage = async (file, maxWidth = 800) => {
     return new Promise((resolve) => {
         const reader = new FileReader();
         reader.readAsDataURL(file);
@@ -536,7 +622,10 @@ const compressImage = async (file, maxWidth = 1024) => {
                 canvas.width = width;
                 canvas.height = height;
                 
+                // Desenhar imagem mantendo a proporção
                 ctx.drawImage(img, 0, 0, width, height);
+                
+                // Comprimir para JPEG com qualidade 0.8
                 resolve(canvas.toDataURL('image/jpeg', 0.8));
             };
         };
@@ -677,79 +766,6 @@ function setupPhotoPreview() {
         }
     });
 }
-
-// Função para fazer upload da foto de perfil
-window.uploadProfilePhoto = async () => {
-    const fileInput = document.getElementById('fileInput');
-    const file = fileInput.files[0];
-    
-    if (!file) {
-        alert('Por favor, selecione uma foto primeiro.');
-        return;
-    }
-    
-    try {
-        // Mostrar loading
-        const saveButton = document.getElementById('saveProfilePhoto');
-        if (saveButton) {
-            saveButton.disabled = true;
-            saveButton.textContent = 'Salvando...';
-        }
-        
-        // Converter arquivo para base64
-        const base64 = await new Promise((resolve) => {
-            const reader = new FileReader();
-            reader.onload = (e) => resolve(e.target.result);
-            reader.readAsDataURL(file);
-        });
-        
-        const response = await fetch(`${API_URL}/auth/profile-photo`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${getToken()}`
-            },
-            body: JSON.stringify({ photoData: base64 })
-        });
-        
-        if (!response.ok) {
-            throw new Error('Erro ao fazer upload da foto');
-        }
-        
-        const data = await response.json();
-        
-        // Atualizar foto no localStorage
-        const currentUser = JSON.parse(localStorage.getItem('user'));
-        currentUser.profileImage = data.profileImage;
-        localStorage.setItem('user', JSON.stringify(currentUser));
-        
-        // Atualizar foto na interface
-        document.getElementById('userAvatar').src = data.profileImage;
-        
-        // Fechar modal
-        document.getElementById('profileModal').style.display = 'none';
-        
-        // Notificar outros usuários se o socket estiver conectado
-        if (socket && socket.connected) {
-            socket.emit('profile photo updated', { 
-                userId: currentUser._id, 
-                profileImage: data.profileImage 
-            });
-        }
-        
-        alert('Foto de perfil atualizada com sucesso!');
-    } catch (error) {
-        console.error('Erro ao fazer upload da foto:', error);
-        alert('Erro ao fazer upload da foto. Por favor, tente novamente.');
-    } finally {
-        // Restaurar botão
-        const saveButton = document.getElementById('saveProfilePhoto');
-        if (saveButton) {
-            saveButton.disabled = false;
-            saveButton.textContent = 'Salvar';
-        }
-    }
-};
 
 // Event Listeners
 document.addEventListener('DOMContentLoaded', () => {
