@@ -306,36 +306,58 @@ const displayMessages = (messages) => {
 
 // Função para criar elemento de mensagem
 const createMessageElement = (message) => {
-    const div = document.createElement('div');
-    div.className = 'message';
-    div.dataset.messageId = message._id;
-    
-    const isCurrentUser = currentUser && message.sender.username === currentUser.username;
-    if (isCurrentUser) {
-        div.classList.add('message-own');
-    }
+    const messageElement = document.createElement('div');
+    messageElement.className = `message ${currentUser && message.sender.username === currentUser.username ? 'message-own' : ''}`;
+    messageElement.dataset.messageId = message._id;
 
-    div.innerHTML = `
+    const isImage = message.type === 'image';
+    
+    messageElement.innerHTML = `
         <img src="${message.sender.profileImage}" alt="Avatar" class="avatar">
         <div class="message-content">
             <div class="message-header">
                 <span class="username">${message.sender.username}</span>
                 <span class="timestamp">${formatDate(message.createdAt)}</span>
             </div>
-            <div class="message-text">${message.content}</div>
+            <div class="message-text">
+                ${isImage 
+                    ? `<img src="${message.imageUrl}" alt="Imagem compartilhada" class="shared-image" onclick="openImageModal('${message.imageUrl}')">`
+                    : message.content}
+            </div>
         </div>
     `;
-    return div;
+
+    return messageElement;
+};
+
+// Função para abrir modal de imagem
+const openImageModal = (imageUrl) => {
+    const modal = document.createElement('div');
+    modal.className = 'modal image-modal';
+    modal.innerHTML = `
+        <div class="modal-content">
+            <span class="close">&times;</span>
+            <img src="${imageUrl}" alt="Imagem em tamanho original">
+        </div>
+    `;
+
+    modal.querySelector('.close').onclick = () => modal.remove();
+    modal.onclick = (e) => {
+        if (e.target === modal) modal.remove();
+    };
+
+    document.body.appendChild(modal);
 };
 
 // Função para enviar mensagem
-const sendMessage = (text) => {
-    if (!socket || !socket.connected || !text.trim()) return;
+const sendMessage = (text, type = 'text') => {
+    if (!socket || !socket.connected) return;
     
     const messageData = {
         room: currentRoom,
         message: {
-            content: text.trim(),
+            content: text,
+            type: type,
             sender: {
                 username: currentUser.username,
                 profileImage: currentUser.profileImage
@@ -512,53 +534,32 @@ const updateProfilePhoto = async (photoData) => {
     }
 };
 
-// Função para redimensionar e comprimir imagem
-const compressImage = (file) => {
-    return new Promise((resolve, reject) => {
+// Função para comprimir imagem
+const compressImage = async (file, maxWidth = 1024) => {
+    return new Promise((resolve) => {
         const reader = new FileReader();
         reader.readAsDataURL(file);
-        
-        reader.onload = (event) => {
+        reader.onload = (e) => {
             const img = new Image();
-            img.src = event.target.result;
-            
+            img.src = e.target.result;
             img.onload = () => {
                 const canvas = document.createElement('canvas');
-                const MAX_WIDTH = 800;
-                const MAX_HEIGHT = 800;
+                const ctx = canvas.getContext('2d');
+                
                 let width = img.width;
                 let height = img.height;
                 
-                // Calcular dimensões mantendo proporção
-                if (width > height) {
-                    if (width > MAX_WIDTH) {
-                        height *= MAX_WIDTH / width;
-                        width = MAX_WIDTH;
-                    }
-                } else {
-                    if (height > MAX_HEIGHT) {
-                        width *= MAX_HEIGHT / height;
-                        height = MAX_HEIGHT;
-                    }
+                if (width > maxWidth) {
+                    height = (maxWidth * height) / width;
+                    width = maxWidth;
                 }
                 
                 canvas.width = width;
                 canvas.height = height;
-                const ctx = canvas.getContext('2d');
-                ctx.drawImage(img, 0, 0, width, height);
                 
-                // Converter para JPEG com qualidade reduzida
-                const compressedDataUrl = canvas.toDataURL('image/jpeg', 0.7);
-                resolve(compressedDataUrl);
+                ctx.drawImage(img, 0, 0, width, height);
+                resolve(canvas.toDataURL('image/jpeg', 0.8));
             };
-            
-            img.onerror = (error) => {
-                reject(error);
-            };
-        };
-        
-        reader.onerror = (error) => {
-            reject(error);
         };
     });
 };
@@ -702,6 +703,47 @@ const setupUserInterface = () => {
             adminPanel.style.display = isVisible ? 'none' : 'block';
             adminPanelButton.style.backgroundColor = isVisible ? '#7289da' : '#5b6eae';
         });
+    }
+
+    // Adicionar botão de imagem
+    const messageForm = document.getElementById('messageForm');
+    if (messageForm) {
+        const imageButton = document.createElement('button');
+        imageButton.type = 'button';
+        imageButton.className = 'image-button';
+        imageButton.innerHTML = '<i class="fas fa-image"></i>';
+        imageButton.title = 'Enviar imagem';
+        
+        const imageInput = document.createElement('input');
+        imageInput.type = 'file';
+        imageInput.accept = 'image/*';
+        imageInput.style.display = 'none';
+        
+        imageButton.onclick = () => imageInput.click();
+        
+        imageInput.onchange = async (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+            
+            if (!file.type.startsWith('image/')) {
+                alert('Por favor, selecione apenas imagens.');
+                return;
+            }
+            
+            try {
+                const compressedImage = await compressImage(file);
+                sendMessage(compressedImage, 'image');
+            } catch (error) {
+                console.error('Erro ao processar imagem:', error);
+                alert('Erro ao processar imagem');
+            }
+            
+            imageInput.value = '';
+        };
+        
+        const inputWrapper = messageForm.querySelector('.input-wrapper');
+        inputWrapper.insertBefore(imageButton, inputWrapper.firstChild);
+        messageForm.appendChild(imageInput);
     }
 };
 

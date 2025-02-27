@@ -6,6 +6,7 @@ const cors = require('cors');
 const http = require('http');
 const socketIo = require('socket.io');
 const path = require('path');
+const cloudinary = require('cloudinary').v2;
 
 const app = express();
 const server = http.createServer(app);
@@ -74,6 +75,13 @@ const connectedUsers = new Map();
 const messageCache = new Map(); // Cache para evitar duplicação
 const MESSAGE_CACHE_SIZE = 1000;
 
+// Configurar Cloudinary
+cloudinary.config({
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+  api_key: process.env.CLOUDINARY_API_KEY,
+  api_secret: process.env.CLOUDINARY_API_SECRET
+});
+
 // Função para limpar mensagens antigas do cache
 const cleanMessageCache = () => {
   if (messageCache.size > MESSAGE_CACHE_SIZE) {
@@ -123,7 +131,7 @@ io.on('connection', (socket) => {
   });
 
   // Quando uma mensagem é enviada
-  socket.on('chat message', (messageData) => {
+  socket.on('chat message', async (messageData) => {
     const user = connectedUsers.get(socket.id);
     if (!user) {
       socket.emit('error', { message: 'Usuário não encontrado' });
@@ -135,7 +143,7 @@ io.on('connection', (socket) => {
       return;
     }
 
-    if (!messageData || !messageData.room || !messageData.message || !messageData.message.content) {
+    if (!messageData || !messageData.room || !messageData.message) {
       socket.emit('error', { message: 'Dados da mensagem inválidos' });
       return;
     }
@@ -150,29 +158,55 @@ io.on('connection', (socket) => {
       return;
     }
 
-    // Criar objeto da mensagem
-    const newMessage = {
-      _id: messageId,
-      content: message.content.trim(),
-      sender: {
-        username: user.username,
-        profileImage: user.profileImage || 'https://www.gravatar.com/avatar/00000000000000000000000000000000?d=mp&f=y'
-      },
-      createdAt: new Date(),
-      room: room
-    };
+    try {
+      let content = message.content;
+      let type = 'text';
+      let imageUrl = null;
 
-    // Adicionar ao cache com timestamp
-    messageCache.set(messageId, {
-      message: newMessage,
-      timestamp: Date.now()
-    });
-    
-    // Limpar cache se necessário
-    cleanMessageCache();
-    
-    // Emitir apenas para a sala específica
-    io.to(room).emit('new message', newMessage);
+      // Se for uma imagem, fazer upload para o Cloudinary
+      if (message.type === 'image' && message.content.startsWith('data:image/')) {
+        const uploadResult = await cloudinary.uploader.upload(message.content, {
+          folder: 'chat-app/messages',
+          resource_type: 'image',
+          transformation: [
+            { quality: 'auto' },
+            { fetch_format: 'auto' }
+          ]
+        });
+        content = uploadResult.secure_url;
+        type = 'image';
+        imageUrl = content;
+      }
+
+      // Criar objeto da mensagem
+      const newMessage = {
+        _id: messageId,
+        content: content,
+        type: type,
+        imageUrl: imageUrl,
+        sender: {
+          username: user.username,
+          profileImage: user.profileImage || 'https://www.gravatar.com/avatar/00000000000000000000000000000000?d=mp&f=y'
+        },
+        createdAt: new Date(),
+        room: room
+      };
+
+      // Adicionar ao cache com timestamp
+      messageCache.set(messageId, {
+        message: newMessage,
+        timestamp: Date.now()
+      });
+      
+      // Limpar cache se necessário
+      cleanMessageCache();
+      
+      // Emitir apenas para a sala específica
+      io.to(room).emit('new message', newMessage);
+    } catch (error) {
+      console.error('Erro ao processar mensagem:', error);
+      socket.emit('error', { message: 'Erro ao enviar mensagem' });
+    }
   });
 
   // Quando um usuário é mutado

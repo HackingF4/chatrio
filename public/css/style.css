@@ -886,4 +886,65 @@ body:not(.light-theme) emoji-picker {
 
 .admin-panel-button i {
     font-size: 14px;
+}
+
+.image-button {
+    background: none;
+    border: none;
+    color: #7289da;
+    font-size: 1.2em;
+    padding: 8px;
+    cursor: pointer;
+    transition: color 0.3s ease;
+}
+
+.image-button:hover {
+    color: #5b6eae;
+}
+
+.shared-image {
+    max-width: 300px;
+    max-height: 300px;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: transform 0.2s ease;
+}
+
+.shared-image:hover {
+    transform: scale(1.02);
+}
+
+.image-modal {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background-color: rgba(0, 0, 0, 0.8);
+}
+
+.image-modal .modal-content {
+    background: none;
+    box-shadow: none;
+    max-width: 90%;
+    max-height: 90vh;
+}
+
+.image-modal img {
+    max-width: 100%;
+    max-height: 90vh;
+    border-radius: 8px;
+    object-fit: contain;
+}
+
+.image-modal .close {
+    position: absolute;
+    top: 15px;
+    right: 15px;
+    color: white;
+    font-size: 30px;
+    cursor: pointer;
+    z-index: 1000;
+}
+
+.image-modal .close:hover {
+    color: #ddd;
 } 
