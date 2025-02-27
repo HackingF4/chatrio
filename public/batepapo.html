@@ -108,19 +108,21 @@
                 <span class="close">&times;</span>
             </div>
             <div class="modal-body">
-                <div class="upload-area">
-                    <input type="file" id="fileInput" accept="image/*" style="display: none">
-                    <div class="upload-preview">
-                        <img id="imagePreview" src="" alt="Preview" style="display: none; max-width: 200px; border-radius: 50%;">
+                <form id="uploadForm" enctype="multipart/form-data">
+                    <div class="upload-area">
+                        <input type="file" id="fileInput" accept="image/*" style="display: none">
+                        <div class="upload-preview">
+                            <img id="imagePreview" src="" alt="Preview" style="display: none; max-width: 200px; border-radius: 50%;">
+                        </div>
+                        <button type="button" class="upload-button" onclick="document.getElementById('fileInput').click()">
+                            <i class="fas fa-upload"></i> Escolher Foto
+                        </button>
                     </div>
-                    <button type="button" class="upload-button" onclick="document.getElementById('fileInput').click()">
-                        <i class="fas fa-upload"></i> Escolher Foto
-                    </button>
-                </div>
-                <div class="upload-actions">
-                    <button type="button" class="btn-secondary" onclick="document.getElementById('profileModal').style.display='none'">Cancelar</button>
-                    <button type="button" class="btn-primary" id="saveProfilePhoto">Salvar</button>
-                </div>
+                    <div class="upload-actions">
+                        <button type="button" class="btn-secondary" onclick="document.getElementById('profileModal').style.display='none'">Cancelar</button>
+                        <button type="button" class="btn-primary" id="saveProfilePhoto" onclick="uploadProfilePhoto()">Salvar</button>
+                    </div>
+                </form>
             </div>
         </div>
     </div>

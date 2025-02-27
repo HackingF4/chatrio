@@ -43,13 +43,16 @@ const initializeSocket = () => {
     
     socket = io(SOCKET_URL, {
         auth: { token: getToken() },
-        transports: ['websocket', 'polling'],
+        transports: ['websocket'],
         reconnection: true,
         reconnectionAttempts: 5,
         reconnectionDelay: 1000,
         timeout: 10000,
         forceNew: true,
-        withCredentials: true
+        withCredentials: true,
+        extraHeaders: {
+            'Origin': window.location.origin
+        }
     });
 
     // Configurar event listeners do socket
@@ -547,21 +550,27 @@ window.uploadProfilePhoto = async () => {
         // Comprimir a imagem antes do upload
         const compressedImage = await compressImage(file, 800);
         
+        // Remover o prefixo "data:image/..." da string base64
+        const base64Data = compressedImage.split('base64,')[1];
+        
         const response = await fetch(`${API_URL}/auth/profile-photo`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
                 'Authorization': `Bearer ${getToken()}`,
-                'Accept': 'application/json'
+                'Accept': 'application/json',
+                'Origin': window.location.origin
             },
+            mode: 'cors',
             credentials: 'include',
             body: JSON.stringify({ 
-                photoData: compressedImage
+                photoData: base64Data,
+                contentType: file.type
             })
         });
         
         if (!response.ok) {
-            const errorData = await response.json();
+            const errorData = await response.json().catch(() => ({ message: 'Erro interno do servidor' }));
             throw new Error(errorData.message || 'Erro ao fazer upload da foto');
         }
         
