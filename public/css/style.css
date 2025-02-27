@@ -473,6 +473,9 @@ body:not(.light-theme) emoji-picker {
     border-radius: 5px;
     margin-bottom: 20px;
     background-color: var(--background-darker);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
 }
 
 .upload-preview {
@@ -484,12 +487,26 @@ body:not(.light-theme) emoji-picker {
     position: relative;
     background-color: var(--background-darker);
     border: 2px solid var(--primary-color);
+    display: flex;
+    align-items: center;
+    justify-content: center;
 }
 
 .upload-preview img {
     width: 100%;
     height: 100%;
     object-fit: cover;
+    display: block;
+}
+
+#previewImage {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: none;
+}
+
+#previewImage.visible {
     display: block;
 }
 
@@ -502,24 +519,30 @@ body:not(.light-theme) emoji-picker {
     cursor: pointer;
     transition: background-color 0.2s;
     font-size: 14px;
-    display: flex;
+    display: inline-flex;
     align-items: center;
     gap: 8px;
+    margin: 10px 0;
 }
 
 .upload-button:hover {
     background-color: #5b73c7;
 }
 
-.upload-button i {
-    font-size: 16px;
+.upload-button input[type="file"] {
+    display: none;
 }
 
 .upload-actions {
-    display: flex;
-    justify-content: flex-end;
+    display: none;
+    justify-content: center;
     gap: 10px;
     margin-top: 20px;
+    width: 100%;
+}
+
+.upload-actions.visible {
+    display: flex;
 }
 
 .btn-secondary {

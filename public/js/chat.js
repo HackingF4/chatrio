@@ -644,15 +644,17 @@ function setupPhotoPreview() {
         }
         
         try {
-            // Comprimir a imagem antes de mostrar o preview
-            const compressedImage = await compressImage(file);
-            previewImage.src = compressedImage;
-            previewImage.style.display = 'block';
-            
-            // Ajustar estilo do preview
-            previewImage.style.width = '100%';
-            previewImage.style.height = '100%';
-            previewImage.style.objectFit = 'cover';
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                previewImage.src = e.target.result;
+                previewImage.style.display = 'block';
+                
+                // Ajustar estilo do preview
+                previewImage.style.width = '100%';
+                previewImage.style.height = '100%';
+                previewImage.style.objectFit = 'cover';
+            };
+            reader.readAsDataURL(file);
             
             // Mostrar botões de ação
             const uploadActions = document.querySelector('.upload-actions');
@@ -684,16 +686,16 @@ window.uploadProfilePhoto = async () => {
             saveButton.textContent = 'Salvando...';
         }
         
-        // Comprimir a imagem antes do upload
-        const compressedImage = await compressImage(file);
+        // Criar FormData para enviar o arquivo
+        const formData = new FormData();
+        formData.append('photo', file);
         
         const response = await fetch(`${API_URL}/auth/profile-photo`, {
             method: 'POST',
             headers: {
-                'Content-Type': 'application/json',
                 'Authorization': `Bearer ${getToken()}`
             },
-            body: JSON.stringify({ photoData: compressedImage })
+            body: formData
         });
         
         if (!response.ok) {
@@ -713,7 +715,7 @@ window.uploadProfilePhoto = async () => {
         // Fechar modal
         document.getElementById('profileModal').style.display = 'none';
         
-        // Notificar outros usuários
+        // Notificar outros usuários se o socket estiver conectado
         if (socket && socket.connected) {
             socket.emit('profile photo updated', { 
                 userId: currentUser._id, 
@@ -757,44 +759,7 @@ document.addEventListener('DOMContentLoaded', () => {
         setupEventListeners();
         
         // Configurar preview da foto
-        const photoInput = document.getElementById('photoInput');
-        const previewImage = document.getElementById('previewImage');
-        const userAvatar = document.getElementById('userAvatar');
-        
-        if (photoInput && previewImage) {
-            // Mostrar foto atual no preview
-            if (currentUser.profileImage) {
-                previewImage.src = currentUser.profileImage;
-                previewImage.style.display = 'block';
-            }
-            
-            // Configurar evento de preview
-            photoInput.addEventListener('change', (e) => {
-                const file = e.target.files[0];
-                if (file) {
-                    const reader = new FileReader();
-                    reader.onload = function(e) {
-                        previewImage.src = e.target.result;
-                        previewImage.style.display = 'block';
-                    }
-                    reader.readAsDataURL(file);
-                }
-            });
-        }
-        
-        // Configurar modal de perfil
-        const profileModal = document.getElementById('profileModal');
-        const closeBtn = profileModal.querySelector('.close');
-        
-        closeBtn.onclick = function() {
-            profileModal.style.display = 'none';
-        }
-        
-        window.onclick = function(event) {
-            if (event.target == profileModal) {
-                profileModal.style.display = 'none';
-            }
-        }
+        setupPhotoPreview();
         
     } catch (error) {
         console.error('Erro ao inicializar chat:', error);
