@@ -850,9 +850,13 @@ function setupPhotoPreview() {
     }
 }
 
+// Adicionar logs para depuração
+console.log('Iniciando aplicação de chat');
+
 // Certificar-se de que a inicialização do socket é feita corretamente
 document.addEventListener('DOMContentLoaded', () => {
     try {
+        console.log('Documento carregado, inicializando socket...');
         // Inicializar Socket.IO
         socket = initializeSocket();
 
@@ -862,6 +866,7 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
+        console.log('Socket conectado, configurando interface do usuário...');
         // Configurar interface do usuário
         setupUserInterface();
 
@@ -880,6 +885,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 const message = messageInput.value.trim();
 
                 if (message) {
+                    console.log('Enviando mensagem:', message);
                     socket.emit('chat message', {
                         room: currentRoom,
                         message: {
