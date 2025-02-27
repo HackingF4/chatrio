@@ -72,9 +72,14 @@
         <div class="chat-main">
             <div class="chat-header">
                 <h2>Bate-papo 1</h2>
-                <button id="themeToggle" class="theme-toggle">
-                    <i class="fas fa-moon"></i>
-                </button>
+                <div class="chat-actions">
+                    <button id="voiceCallButton" class="voice-call-button" title="Iniciar chamada de voz">
+                        <i class="fas fa-phone"></i>
+                    </button>
+                    <button id="themeToggle" class="theme-toggle">
+                        <i class="fas fa-moon"></i>
+                    </button>
+                </div>
             </div>
             <div class="messages" id="messageContainer"></div>
             <div class="message-input">
@@ -123,6 +128,35 @@
                         <button type="button" class="btn-primary" id="saveProfilePhoto" onclick="uploadProfilePhoto()">Salvar</button>
                     </div>
                 </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal de Chamada de Voz -->
+    <div id="voiceCallModal" class="modal">
+        <div class="modal-content voice-call">
+            <div class="modal-header">
+                <h2>Chamada de Voz</h2>
+                <span class="close">&times;</span>
+            </div>
+            <div class="modal-body">
+                <div class="call-status">
+                    <div class="call-avatar">
+                        <img src="" alt="Avatar" id="callUserAvatar">
+                    </div>
+                    <div class="call-info">
+                        <span id="callStatus">Iniciando chamada...</span>
+                        <span id="callDuration">00:00</span>
+                    </div>
+                </div>
+                <div class="call-controls">
+                    <button id="muteButton" class="call-button">
+                        <i class="fas fa-microphone"></i>
+                    </button>
+                    <button id="endCallButton" class="call-button end-call">
+                        <i class="fas fa-phone-slash"></i>
+                    </button>
+                </div>
             </div>
         </div>
     </div>
