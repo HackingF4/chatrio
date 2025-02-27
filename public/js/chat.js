@@ -850,67 +850,24 @@ function setupPhotoPreview() {
     }
 }
 
-// Event Listeners
+// Certificar-se de que a inicialização do socket é feita corretamente
 document.addEventListener('DOMContentLoaded', () => {
     try {
-        // Carregar usuário atual
-        const savedUser = localStorage.getItem('user');
-        if (!savedUser) {
-            window.location.href = '/';
+        // Inicializar Socket.IO
+        socket = initializeSocket();
+
+        // Verificar se o socket está conectado antes de emitir eventos
+        if (!socket || !socket.connected) {
+            console.error('Erro: socket não está conectado.');
             return;
         }
 
-        currentUser = JSON.parse(savedUser);
-        
-        // Inicializar Socket.IO
-        socket = io(SOCKET_URL, {
-            auth: { token: getToken() },
-            transports: ['websocket'],
-            reconnection: true,
-            reconnectionAttempts: 5,
-            reconnectionDelay: 1000,
-            timeout: 10000
-        });
-
-        // Configurar eventos do socket
-        socket.on('connect', () => {
-            console.log('Conectado ao servidor');
-            socket.emit('user connected', currentUser);
-            socket.emit('join room', currentRoom);
-            socket.emit('get users');
-        });
-
-        socket.on('disconnect', () => {
-            console.log('Desconectado do servidor');
-        });
-
-        socket.on('connect_error', (error) => {
-            console.error('Erro de conexão:', error);
-        });
-
-        socket.on('new message', (message) => {
-            if (message.room === currentRoom) {
-                const container = document.getElementById('messageContainer');
-                if (container) {
-                    const messageElement = createMessageElement(message);
-                    container.appendChild(messageElement);
-                    scrollToBottom();
-                }
-            }
-        });
-
-        socket.on('users online', (users) => {
-            if (Array.isArray(users)) {
-                updateOnlineUsers(users);
-            }
-        });
-        
         // Configurar interface do usuário
         setupUserInterface();
-        
+
         // Configurar eventos
         setupEventListeners();
-        
+
         // Configurar preview da foto
         setupPhotoPreview();
 
@@ -921,7 +878,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 e.preventDefault();
                 const messageInput = document.getElementById('messageInput');
                 const message = messageInput.value.trim();
-                
+
                 if (message) {
                     socket.emit('chat message', {
                         room: currentRoom,
@@ -934,7 +891,7 @@ document.addEventListener('DOMContentLoaded', () => {
                             }
                         }
                     });
-                    
+
                     messageInput.value = '';
                     messageInput.focus();
                 }
@@ -943,7 +900,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Carregar mensagens iniciais
         loadMessages();
-        
+
     } catch (error) {
         console.error('Erro ao inicializar chat:', error);
         alert('Erro ao inicializar chat. Por favor, tente novamente.');
