@@ -722,25 +722,19 @@ const setupUserInterface = () => {
     document.getElementById('username').textContent = currentUser.username;
     document.getElementById('userAvatar').src = currentUser.profileImage || 'https://www.gravatar.com/avatar/00000000000000000000000000000000?d=mp&f=y';
     
-    // Configurar preview da foto de perfil
-    const photoInput = document.getElementById('photoInput');
+    // Configurar preview da foto
+    setupPhotoPreview();
+    
+    // Atualizar avatar do usuário
+    const userAvatar = document.getElementById('userAvatar');
     const previewImage = document.getElementById('previewImage');
     
-    if (photoInput && previewImage) {
-        // Definir imagem inicial do preview
-        previewImage.src = currentUser.profileImage || 'https://www.gravatar.com/avatar/00000000000000000000000000000000?d=mp&f=y';
-        
-        // Configurar evento de preview
-        photoInput.addEventListener('change', (e) => {
-            const file = e.target.files[0];
-            if (file) {
-                const reader = new FileReader();
-                reader.onload = function(e) {
-                    previewImage.src = e.target.result;
-                }
-                reader.readAsDataURL(file);
-            }
-        });
+    if (userAvatar && currentUser?.profileImage) {
+        userAvatar.src = currentUser.profileImage;
+        if (previewImage) {
+            previewImage.src = currentUser.profileImage;
+            previewImage.style.display = 'block';
+        }
     }
 
     // Configurar envio de imagens no chat
@@ -978,4 +972,23 @@ socket.on('user joined', (user) => {
 socket.on('user left', (user) => {
     console.log('Usuário saiu:', user);
     socket.emit('get users');
-}); 
+});
+
+const setupPhotoPreview = () => {
+    const photoInput = document.getElementById('photoInput');
+    const previewImage = document.getElementById('previewImage');
+    
+    if (!photoInput || !previewImage) return;
+    
+    photoInput.addEventListener('change', (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            previewImage.src = e.target.result;
+            previewImage.style.display = 'block';
+        };
+        reader.readAsDataURL(file);
+    });
+}; 
