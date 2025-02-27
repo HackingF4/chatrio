@@ -41,14 +41,6 @@ const initializeSocket = () => {
     
     isConnecting = true;
     
-    if (socket) {
-        socket.disconnect();
-        socket.removeAllListeners();
-        socket = null;
-    }
-    
-    processedMessages.clear();
-    
     socket = io(SOCKET_URL, {
         auth: { token: getToken() },
         transports: ['websocket'],
@@ -59,12 +51,16 @@ const initializeSocket = () => {
         forceNew: true
     });
 
+    // Configurar event listeners do socket
     socket.on('connect', () => {
         console.log('Conectado ao servidor');
         isConnecting = false;
-        socket.emit('user connected', currentUser);
-        socket.emit('join room', currentRoom);
-        loadMessages();
+        
+        if (currentUser) {
+            socket.emit('user connected', currentUser);
+            socket.emit('join room', currentRoom);
+            socket.emit('get users');
+        }
     });
 
     socket.on('disconnect', () => {
@@ -78,40 +74,23 @@ const initializeSocket = () => {
     });
 
     socket.on('new message', (message) => {
-        if (!message || !message._id) return;
-        
-        if (processedMessages.has(message._id)) {
-            console.log('Mensagem já processada:', message._id);
-            return;
-        }
-        
-        processedMessages.add(message._id);
-        
-        if (processedMessages.size > 1000) {
-            const [firstItem] = processedMessages;
-            processedMessages.delete(firstItem);
-        }
-        
         if (message.room === currentRoom) {
             const container = document.getElementById('messageContainer');
-            if (!container) return;
-            
-            const messageElement = createMessageElement(message);
-            messageElement.dataset.messageId = message._id;
-            container.appendChild(messageElement);
-            scrollToBottom();
+            if (container) {
+                const messageElement = createMessageElement(message);
+                container.appendChild(messageElement);
+                scrollToBottom();
+            }
         }
     });
 
     socket.on('users online', (users) => {
-        if (!Array.isArray(users)) return;
-        updateOnlineUsers(users);
+        if (Array.isArray(users)) {
+            updateOnlineUsers(users);
+        }
     });
 
-    socket.on('error', (error) => {
-        console.error('Erro:', error);
-        alert(error.message);
-    });
+    return socket;
 };
 
 // Função para lidar com novas mensagens
@@ -642,6 +621,63 @@ window.clearChat = async function() {
     }
 };
 
+// Função para fazer upload da foto de perfil
+window.uploadProfilePhoto = async function() {
+    const photoInput = document.getElementById('photoInput');
+    const file = photoInput.files[0];
+    
+    if (!file) {
+        alert('Por favor, selecione uma imagem.');
+        return;
+    }
+    
+    try {
+        const compressedImage = await compressImage(file);
+        const response = await fetch(`${API_URL}/auth/profile-photo`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${getToken()}`
+            },
+            body: JSON.stringify({ photoData: compressedImage })
+        });
+
+        const data = await response.json();
+        
+        if (!response.ok) {
+            throw new Error(data.message || 'Erro ao atualizar foto');
+        }
+
+        // Atualizar foto no localStorage
+        const user = JSON.parse(localStorage.getItem('user'));
+        user.profileImage = data.profileImage;
+        localStorage.setItem('user', JSON.stringify(user));
+
+        // Atualizar foto na interface
+        document.getElementById('userAvatar').src = data.profileImage;
+        document.getElementById('previewImage').src = data.profileImage;
+        
+        // Fechar modal
+        document.getElementById('profileModal').style.display = 'none';
+        
+        // Notificar outros usuários se o socket estiver conectado
+        if (socket && socket.connected) {
+            socket.emit('user connected', {
+                id: user.id,
+                username: user.username,
+                profileImage: user.profileImage,
+                role: user.role,
+                isMuted: user.isMuted
+            });
+        }
+
+        alert('Foto de perfil atualizada com sucesso!');
+    } catch (error) {
+        console.error('Erro ao atualizar foto:', error);
+        alert('Erro ao atualizar foto de perfil: ' + error.message);
+    }
+};
+
 // Event Listeners
 document.addEventListener('DOMContentLoaded', () => {
     // Carregar usuário atual
@@ -651,38 +687,31 @@ document.addEventListener('DOMContentLoaded', () => {
         return;
     }
 
-    currentUser = JSON.parse(savedUser);
-    
-    // Inicializar Socket.IO
-    initializeSocket();
-
-    // Configurar formulário de mensagem
-    const messageForm = document.getElementById('messageForm');
-    if (messageForm) {
-        messageForm.addEventListener('submit', (e) => {
-            e.preventDefault();
-            const messageInput = document.getElementById('messageInput');
-            if (messageInput) {
-                sendMessage(messageInput.value);
-            }
-        });
+    try {
+        currentUser = JSON.parse(savedUser);
+        
+        // Configurar interface do usuário
+        setupUserInterface();
+        
+        // Inicializar Socket.IO
+        socket = initializeSocket();
+        
+        // Configurar eventos
+        setupEventListeners();
+        
+        // Atualizar lista de usuários periodicamente
+        if (socket) {
+            setInterval(() => {
+                if (socket.connected) {
+                    socket.emit('get users');
+                }
+            }, 3000);
+        }
+    } catch (error) {
+        console.error('Erro ao inicializar chat:', error);
+        alert('Erro ao inicializar o chat. Por favor, faça login novamente.');
+        window.location.href = '/';
     }
-
-    // Configurar tema
-    document.body.classList.toggle('light-theme', !darkMode);
-    const themeIcon = document.querySelector('#themeToggle i');
-    if (themeIcon) {
-        themeIcon.className = darkMode ? 'fas fa-sun' : 'fas fa-moon';
-    }
-
-    // Configurar interface do usuário
-    setupUserInterface();
-    
-    // Configurar eventos
-    setupEventListeners();
-    
-    // Atualizar lista de usuários periodicamente
-    startUserListUpdates();
 });
 
 // Função para configurar interface do usuário
@@ -982,18 +1011,21 @@ window.uploadProfilePhoto = async () => {
 
         // Atualizar foto na interface
         document.getElementById('userAvatar').src = data.profileImage;
+        document.getElementById('previewImage').src = data.profileImage;
         
         // Fechar modal
         document.getElementById('profileModal').style.display = 'none';
         
-        // Notificar outros usuários
-        socket.emit('user connected', {
-            id: user.id,
-            username: user.username,
-            profileImage: user.profileImage,
-            role: user.role,
-            isMuted: user.isMuted
-        });
+        // Notificar outros usuários se o socket estiver conectado
+        if (socket && socket.connected) {
+            socket.emit('user connected', {
+                id: user.id,
+                username: user.username,
+                profileImage: user.profileImage,
+                role: user.role,
+                isMuted: user.isMuted
+            });
+        }
 
         alert('Foto de perfil atualizada com sucesso!');
     } catch (error) {
