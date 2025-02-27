@@ -7,6 +7,7 @@ const http = require('http');
 const socketIo = require('socket.io');
 const path = require('path');
 const cloudinary = require('cloudinary').v2;
+const { v4: uuidv4 } = require('uuid');
 
 const app = express();
 const server = http.createServer(app);
@@ -131,78 +132,55 @@ io.on('connection', (socket) => {
   });
 
   // Quando uma mensagem é enviada
-  socket.on('chat message', async (messageData) => {
-    const user = connectedUsers.get(socket.id);
-    if (!user) {
-      socket.emit('error', { message: 'Usuário não encontrado' });
-      return;
-    }
-
-    if (user.isMuted) {
-      socket.emit('error', { message: 'Você está mutado e não pode enviar mensagens.' });
-      return;
-    }
-
-    if (!messageData || !messageData.room || !messageData.message) {
-      socket.emit('error', { message: 'Dados da mensagem inválidos' });
-      return;
-    }
-
-    const { room, message } = messageData;
-    
-    // Criar ID único para a mensagem
-    const messageId = `${user._id}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-    
-    // Verificar se a mensagem já está no cache
-    if (messageCache.has(messageId)) {
-      return;
-    }
-
+  socket.on('chat message', async (data) => {
     try {
-      let content = message.content;
-      let type = 'text';
-      let imageUrl = null;
-
-      // Se for uma imagem, fazer upload para o Cloudinary
-      if (message.type === 'image' && message.content.startsWith('data:image/')) {
-        const uploadResult = await cloudinary.uploader.upload(message.content, {
-          folder: 'chat-app/messages',
-          resource_type: 'image',
-          transformation: [
-            { quality: 'auto' },
-            { fetch_format: 'auto' }
-          ]
-        });
-        content = uploadResult.secure_url;
-        type = 'image';
-        imageUrl = content;
+      const user = connectedUsers.get(socket.id);
+      if (!user) {
+        socket.emit('error', { message: 'Usuário não encontrado' });
+        return;
       }
 
-      // Criar objeto da mensagem
+      if (user.isMuted) {
+        socket.emit('error', { message: 'Você está silenciado' });
+        return;
+      }
+
+      const { message, type, room } = data;
+      
+      let processedMessage = message;
+      
+      // Se for uma imagem, fazer upload para o Cloudinary
+      if (type === 'image') {
+        const result = await cloudinary.uploader.upload(message, {
+          folder: 'chat_images',
+          transformation: [
+            { width: 800, crop: 'limit' },
+            { quality: 'auto' }
+          ]
+        });
+        processedMessage = result.secure_url;
+      }
+
       const newMessage = {
-        _id: messageId,
-        content: content,
-        type: type,
-        imageUrl: imageUrl,
-        sender: {
+        id: uuidv4(),
+        user: {
+          id: user.id,
           username: user.username,
-          profileImage: user.profileImage || 'https://www.gravatar.com/avatar/00000000000000000000000000000000?d=mp&f=y'
+          profileImage: user.profileImage
         },
-        createdAt: new Date(),
-        room: room
+        message: processedMessage,
+        type: type || 'text',
+        room,
+        timestamp: new Date()
       };
 
-      // Adicionar ao cache com timestamp
-      messageCache.set(messageId, {
-        message: newMessage,
-        timestamp: Date.now()
-      });
-      
-      // Limpar cache se necessário
-      cleanMessageCache();
-      
-      // Emitir apenas para a sala específica
       io.to(room).emit('new message', newMessage);
+      
+      // Armazenar mensagem no cache
+      const roomMessages = messageCache.get(room) || [];
+      roomMessages.push(newMessage);
+      if (roomMessages.length > 100) roomMessages.shift();
+      messageCache.set(room, roomMessages);
     } catch (error) {
       console.error('Erro ao processar mensagem:', error);
       socket.emit('error', { message: 'Erro ao enviar mensagem' });
@@ -289,4 +267,34 @@ const authRoutes = require('./routes/authRoutes');
 const chatRoutes = require('./routes/chatRoutes');
 
 app.use('/api/auth', authRoutes);
-app.use('/api/chat', chatRoutes); 
+app.use('/api/chat', chatRoutes);
+
+// Endpoint para atualizar foto de perfil
+app.post('/auth/profile-photo', authenticateToken, async (req, res) => {
+    try {
+        const { photoData } = req.body;
+        
+        if (!photoData) {
+            return res.status(400).json({ message: 'Nenhuma foto fornecida' });
+        }
+
+        // Upload para Cloudinary
+        const result = await cloudinary.uploader.upload(photoData, {
+            folder: 'profile_photos',
+            transformation: [
+                { width: 200, height: 200, crop: 'fill' },
+                { quality: 'auto' }
+            ]
+        });
+
+        // Atualizar URL da foto no banco de dados
+        await User.findByIdAndUpdate(req.user.id, {
+            profileImage: result.secure_url
+        });
+
+        res.json({ profileImage: result.secure_url });
+    } catch (error) {
+        console.error('Erro ao atualizar foto de perfil:', error);
+        res.status(500).json({ message: 'Erro ao atualizar foto de perfil' });
+    }
+}); 

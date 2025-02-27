@@ -488,17 +488,18 @@ const toggleTheme = () => {
 };
 
 // Função para atualizar foto de perfil
-const updateProfilePhoto = async (file) => {
+const updateProfilePhoto = async (photoData) => {
     try {
-        const compressedImage = await compressImage(file);
-        
+        // Remover o prefixo "data:image/..." da string base64 se existir
+        const base64Data = photoData.includes('base64,') ? photoData.split('base64,')[1] : photoData;
+
         const response = await fetch(`${API_URL}/auth/profile-photo`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
                 'Authorization': `Bearer ${getToken()}`
             },
-            body: JSON.stringify({ photoData: compressedImage })
+            body: JSON.stringify({ photoData: `data:image/jpeg;base64,${base64Data}` })
         });
 
         const data = await response.json();
@@ -511,34 +512,24 @@ const updateProfilePhoto = async (file) => {
         const user = JSON.parse(localStorage.getItem('user'));
         user.profileImage = data.profileImage;
         localStorage.setItem('user', JSON.stringify(user));
-        currentUser = user;
 
         // Atualizar foto na interface
-        const userAvatar = document.getElementById('userAvatar');
-        if (userAvatar) {
-            userAvatar.src = data.profileImage;
-        }
+        document.getElementById('userAvatar').src = data.profileImage;
 
         // Fechar modal
-        const modal = document.getElementById('profileModal');
-        if (modal) {
-            modal.style.display = 'none';
-        }
+        document.getElementById('profileModal').style.display = 'none';
 
         // Notificar outros usuários
-        if (socket && socket.connected) {
-            socket.emit('user connected', {
-                id: user.id,
-                username: user.username,
-                profileImage: user.profileImage,
-                role: user.role,
-                isMuted: user.isMuted
-            });
-        }
+        socket.emit('user connected', {
+            id: user.id,
+            username: user.username,
+            profileImage: user.profileImage,
+            role: user.role,
+            isMuted: user.isMuted
+        });
 
-        alert('Foto de perfil atualizada com sucesso!');
     } catch (error) {
-        console.error('Erro ao atualizar foto:', error);
+        console.error('Erro detalhado:', error);
         alert('Erro ao atualizar foto de perfil: ' + error.message);
     }
 };
@@ -694,51 +685,59 @@ document.addEventListener('DOMContentLoaded', () => {
     startUserListUpdates();
 });
 
-// Configurar interface do usuário
+// Função para configurar interface do usuário
 const setupUserInterface = () => {
     // Atualizar informações do usuário
-    const usernameElement = document.getElementById('username');
-    const userAvatar = document.getElementById('userAvatar');
-    
-    if (usernameElement) {
-        usernameElement.textContent = currentUser.username;
-    }
-    
-    if (userAvatar) {
-        userAvatar.src = currentUser.profileImage || 'https://www.gravatar.com/avatar/00000000000000000000000000000000?d=mp&f=y';
+    const currentUser = JSON.parse(localStorage.getItem('user'));
+    document.getElementById('username').textContent = currentUser.username;
+    document.getElementById('userAvatar').src = currentUser.profileImage || 'https://www.gravatar.com/avatar/00000000000000000000000000000000?d=mp&f=y';
+    document.getElementById('previewImage').src = currentUser.profileImage || 'https://www.gravatar.com/avatar/00000000000000000000000000000000?d=mp&f=y';
+
+    // Configurar upload de foto de perfil
+    const photoInput = document.getElementById('photoInput');
+    photoInput.addEventListener('change', async (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
         
-        // Configurar upload de foto de perfil
-        const avatarContainer = document.querySelector('.avatar-container');
-        if (avatarContainer) {
-            const fileInput = document.createElement('input');
-            fileInput.type = 'file';
-            fileInput.accept = 'image/*';
-            fileInput.style.display = 'none';
-            
-            avatarContainer.appendChild(fileInput);
-            
-            avatarContainer.onclick = () => fileInput.click();
-            
-            fileInput.onchange = async (e) => {
-                const file = e.target.files[0];
-                if (!file) return;
-                
-                if (!file.type.startsWith('image/')) {
-                    alert('Por favor, selecione apenas imagens.');
-                    return;
-                }
-                
-                try {
-                    await updateProfilePhoto(file);
-                } catch (error) {
-                    console.error('Erro ao processar imagem:', error);
-                    alert('Erro ao processar imagem');
-                }
-                
-                fileInput.value = '';
-            };
+        if (!file.type.startsWith('image/')) {
+            alert('Por favor, selecione apenas imagens.');
+            return;
         }
-    }
+        
+        try {
+            const preview = document.getElementById('previewImage');
+            preview.src = URL.createObjectURL(file);
+        } catch (error) {
+            console.error('Erro ao carregar preview:', error);
+            alert('Erro ao carregar imagem');
+        }
+    });
+
+    // Configurar envio de imagens no chat
+    const chatImageButton = document.querySelector('.image-button');
+    const chatImageInput = document.getElementById('chatImageInput');
+    
+    chatImageButton.onclick = () => chatImageInput.click();
+    
+    chatImageInput.onchange = async (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        
+        if (!file.type.startsWith('image/')) {
+            alert('Por favor, selecione apenas imagens.');
+            return;
+        }
+        
+        try {
+            const compressedImage = await compressImage(file);
+            sendMessage(compressedImage, 'image');
+        } catch (error) {
+            console.error('Erro ao processar imagem:', error);
+            alert('Erro ao processar imagem');
+        }
+        
+        chatImageInput.value = '';
+    };
 
     // Configurar painel de administração
     const adminPanelButton = document.getElementById('adminPanelButton');
@@ -752,53 +751,6 @@ const setupUserInterface = () => {
             adminPanel.style.display = isVisible ? 'none' : 'block';
             adminPanelButton.style.backgroundColor = isVisible ? '#7289da' : '#5b6eae';
         });
-    }
-
-    // Adicionar botão de imagem no chat
-    const messageForm = document.getElementById('messageForm');
-    if (messageForm) {
-        const inputWrapper = messageForm.querySelector('.input-wrapper');
-        if (inputWrapper) {
-            // Criar botão de imagem
-            const imageButton = document.createElement('button');
-            imageButton.type = 'button';
-            imageButton.className = 'image-button';
-            imageButton.innerHTML = '<i class="fas fa-image"></i>';
-            imageButton.title = 'Enviar imagem';
-            
-            // Criar input de arquivo
-            const imageInput = document.createElement('input');
-            imageInput.type = 'file';
-            imageInput.accept = 'image/*';
-            imageInput.style.display = 'none';
-            
-            // Adicionar event listeners
-            imageButton.onclick = () => imageInput.click();
-            
-            imageInput.onchange = async (e) => {
-                const file = e.target.files[0];
-                if (!file) return;
-                
-                if (!file.type.startsWith('image/')) {
-                    alert('Por favor, selecione apenas imagens.');
-                    return;
-                }
-                
-                try {
-                    const compressedImage = await compressImage(file);
-                    sendMessage(compressedImage, 'image');
-                } catch (error) {
-                    console.error('Erro ao processar imagem:', error);
-                    alert('Erro ao processar imagem');
-                }
-                
-                imageInput.value = '';
-            };
-            
-            // Adicionar elementos ao DOM
-            inputWrapper.insertBefore(imageButton, inputWrapper.firstChild);
-            messageForm.appendChild(imageInput);
-        }
     }
 };
 
@@ -994,4 +946,58 @@ socket.on('user joined', (user) => {
 socket.on('user left', (user) => {
     console.log('Usuário saiu:', user);
     socket.emit('get users');
-}); 
+});
+
+// Função para fazer upload da foto de perfil
+window.uploadProfilePhoto = async () => {
+    const photoInput = document.getElementById('photoInput');
+    const file = photoInput.files[0];
+    
+    if (!file) {
+        alert('Por favor, selecione uma imagem.');
+        return;
+    }
+    
+    try {
+        const compressedImage = await compressImage(file);
+        const response = await fetch(`${API_URL}/auth/profile-photo`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${getToken()}`
+            },
+            body: JSON.stringify({ photoData: compressedImage })
+        });
+
+        const data = await response.json();
+        
+        if (!response.ok) {
+            throw new Error(data.message || 'Erro ao atualizar foto');
+        }
+
+        // Atualizar foto no localStorage
+        const user = JSON.parse(localStorage.getItem('user'));
+        user.profileImage = data.profileImage;
+        localStorage.setItem('user', JSON.stringify(user));
+
+        // Atualizar foto na interface
+        document.getElementById('userAvatar').src = data.profileImage;
+        
+        // Fechar modal
+        document.getElementById('profileModal').style.display = 'none';
+        
+        // Notificar outros usuários
+        socket.emit('user connected', {
+            id: user.id,
+            username: user.username,
+            profileImage: user.profileImage,
+            role: user.role,
+            isMuted: user.isMuted
+        });
+
+        alert('Foto de perfil atualizada com sucesso!');
+    } catch (error) {
+        console.error('Erro ao atualizar foto:', error);
+        alert('Erro ao atualizar foto de perfil: ' + error.message);
+    }
+}; 
