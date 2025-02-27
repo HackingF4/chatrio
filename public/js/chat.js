@@ -622,7 +622,7 @@ window.clearChat = async function() {
 };
 
 // Função para fazer upload da foto de perfil
-window.uploadProfilePhoto = async function() {
+window.uploadProfilePhoto = async () => {
     const photoInput = document.getElementById('photoInput');
     const file = photoInput.files[0];
     
@@ -632,14 +632,16 @@ window.uploadProfilePhoto = async function() {
     }
     
     try {
-        const compressedImage = await compressImage(file);
+        // Criar FormData para enviar o arquivo
+        const formData = new FormData();
+        formData.append('photoData', file);
+
         const response = await fetch(`${API_URL}/auth/profile-photo`, {
             method: 'POST',
             headers: {
-                'Content-Type': 'application/json',
                 'Authorization': `Bearer ${getToken()}`
             },
-            body: JSON.stringify({ photoData: compressedImage })
+            body: formData
         });
 
         const data = await response.json();
@@ -655,7 +657,6 @@ window.uploadProfilePhoto = async function() {
 
         // Atualizar foto na interface
         document.getElementById('userAvatar').src = data.profileImage;
-        document.getElementById('previewImage').src = data.profileImage;
         
         // Fechar modal
         document.getElementById('profileModal').style.display = 'none';
@@ -720,53 +721,55 @@ const setupUserInterface = () => {
     const currentUser = JSON.parse(localStorage.getItem('user'));
     document.getElementById('username').textContent = currentUser.username;
     document.getElementById('userAvatar').src = currentUser.profileImage || 'https://www.gravatar.com/avatar/00000000000000000000000000000000?d=mp&f=y';
-    document.getElementById('previewImage').src = currentUser.profileImage || 'https://www.gravatar.com/avatar/00000000000000000000000000000000?d=mp&f=y';
-
-    // Configurar upload de foto de perfil
+    
+    // Configurar preview da foto de perfil
     const photoInput = document.getElementById('photoInput');
-    photoInput.addEventListener('change', async (e) => {
-        const file = e.target.files[0];
-        if (!file) return;
+    const previewImage = document.getElementById('previewImage');
+    
+    if (photoInput && previewImage) {
+        // Definir imagem inicial do preview
+        previewImage.src = currentUser.profileImage || 'https://www.gravatar.com/avatar/00000000000000000000000000000000?d=mp&f=y';
         
-        if (!file.type.startsWith('image/')) {
-            alert('Por favor, selecione apenas imagens.');
-            return;
-        }
-        
-        try {
-            const preview = document.getElementById('previewImage');
-            preview.src = URL.createObjectURL(file);
-        } catch (error) {
-            console.error('Erro ao carregar preview:', error);
-            alert('Erro ao carregar imagem');
-        }
-    });
+        // Configurar evento de preview
+        photoInput.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    previewImage.src = e.target.result;
+                }
+                reader.readAsDataURL(file);
+            }
+        });
+    }
 
     // Configurar envio de imagens no chat
     const chatImageButton = document.querySelector('.image-button');
     const chatImageInput = document.getElementById('chatImageInput');
     
-    chatImageButton.onclick = () => chatImageInput.click();
-    
-    chatImageInput.onchange = async (e) => {
-        const file = e.target.files[0];
-        if (!file) return;
+    if (chatImageButton && chatImageInput) {
+        chatImageButton.onclick = () => chatImageInput.click();
         
-        if (!file.type.startsWith('image/')) {
-            alert('Por favor, selecione apenas imagens.');
-            return;
-        }
-        
-        try {
-            const compressedImage = await compressImage(file);
-            sendMessage(compressedImage, 'image');
-        } catch (error) {
-            console.error('Erro ao processar imagem:', error);
-            alert('Erro ao processar imagem');
-        }
-        
-        chatImageInput.value = '';
-    };
+        chatImageInput.onchange = async (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+            
+            if (!file.type.startsWith('image/')) {
+                alert('Por favor, selecione apenas imagens.');
+                return;
+            }
+            
+            try {
+                const compressedImage = await compressImage(file);
+                sendMessage(compressedImage, 'image');
+            } catch (error) {
+                console.error('Erro ao processar imagem:', error);
+                alert('Erro ao processar imagem');
+            }
+            
+            chatImageInput.value = '';
+        };
+    }
 
     // Configurar painel de administração
     const adminPanelButton = document.getElementById('adminPanelButton');
@@ -975,61 +978,4 @@ socket.on('user joined', (user) => {
 socket.on('user left', (user) => {
     console.log('Usuário saiu:', user);
     socket.emit('get users');
-});
-
-// Função para fazer upload da foto de perfil
-window.uploadProfilePhoto = async () => {
-    const photoInput = document.getElementById('photoInput');
-    const file = photoInput.files[0];
-    
-    if (!file) {
-        alert('Por favor, selecione uma imagem.');
-        return;
-    }
-    
-    try {
-        const compressedImage = await compressImage(file);
-        const response = await fetch(`${API_URL}/auth/profile-photo`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${getToken()}`
-            },
-            body: JSON.stringify({ photoData: compressedImage })
-        });
-
-        const data = await response.json();
-        
-        if (!response.ok) {
-            throw new Error(data.message || 'Erro ao atualizar foto');
-        }
-
-        // Atualizar foto no localStorage
-        const user = JSON.parse(localStorage.getItem('user'));
-        user.profileImage = data.profileImage;
-        localStorage.setItem('user', JSON.stringify(user));
-
-        // Atualizar foto na interface
-        document.getElementById('userAvatar').src = data.profileImage;
-        document.getElementById('previewImage').src = data.profileImage;
-        
-        // Fechar modal
-        document.getElementById('profileModal').style.display = 'none';
-        
-        // Notificar outros usuários se o socket estiver conectado
-        if (socket && socket.connected) {
-            socket.emit('user connected', {
-                id: user.id,
-                username: user.username,
-                profileImage: user.profileImage,
-                role: user.role,
-                isMuted: user.isMuted
-            });
-        }
-
-        alert('Foto de perfil atualizada com sucesso!');
-    } catch (error) {
-        console.error('Erro ao atualizar foto:', error);
-        alert('Erro ao atualizar foto de perfil: ' + error.message);
-    }
-}; 
+}); 

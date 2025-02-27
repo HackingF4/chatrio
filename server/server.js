@@ -301,14 +301,14 @@ app.use('/api/chat', chatRoutes);
 // Endpoint para atualizar foto de perfil
 app.post('/auth/profile-photo', authenticateToken, async (req, res) => {
     try {
-        const { photoData } = req.body;
+        const file = req.files?.photoData;
         
-        if (!photoData) {
+        if (!file) {
             return res.status(400).json({ message: 'Nenhuma foto fornecida' });
         }
 
         // Upload para Cloudinary
-        const result = await cloudinary.uploader.upload(photoData, {
+        const result = await cloudinary.uploader.upload(file.tempFilePath, {
             folder: 'profile_photos',
             transformation: [
                 { width: 200, height: 200, crop: 'fill' },
