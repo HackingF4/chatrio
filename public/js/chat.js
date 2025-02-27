@@ -1349,6 +1349,7 @@ const listAudioDevices = async () => {
 const setupPeerConnectionHandlers = (targetUserId) => {
     peerConnection.onicecandidate = (event) => {
         if (event.candidate) {
+            console.log('ICE candidate:', event.candidate);
             socket.emit('ice-candidate', {
                 candidate: event.candidate,
                 targetUserId: targetUserId
@@ -1357,7 +1358,7 @@ const setupPeerConnectionHandlers = (targetUserId) => {
     };
 
     peerConnection.ontrack = (event) => {
-        console.log('Stream remoto recebido');
+        console.log('Stream remoto recebido:', event.streams);
         const remoteAudio = new Audio();
         remoteAudio.srcObject = event.streams[0];
         remoteAudio.play().catch(console.error);
@@ -1475,6 +1476,7 @@ const handleIncomingCall = async (data) => {
         // Configurar handlers
         peerConnection.onicecandidate = (event) => {
             if (event.candidate) {
+                console.log('ICE candidate:', event.candidate);
                 socket.emit('ice-candidate', {
                     candidate: event.candidate,
                     targetUserId: caller.id
@@ -1483,7 +1485,7 @@ const handleIncomingCall = async (data) => {
         };
         
         peerConnection.ontrack = (event) => {
-            console.log('Stream remoto recebido');
+            console.log('Stream remoto recebido:', event.streams);
             const remoteAudio = new Audio();
             remoteAudio.srcObject = event.streams[0];
             remoteAudio.play().catch(console.error);
