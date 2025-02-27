@@ -20,6 +20,8 @@ let peerConnection = null;
 let callTimer = null;
 let callDuration = 0;
 let isMuted = false;
+let callParticipants = new Map(); // Mapa de participantes da chamada
+let selectedAudioDevice = null;
 
 // Configuração do WebRTC
 const peerConfig = {
@@ -1243,4 +1245,200 @@ document.getElementById('voiceCallButton').addEventListener('click', () => {
 });
 
 document.getElementById('muteButton').addEventListener('click', toggleMute);
-document.getElementById('endCallButton').addEventListener('click', endCall); 
+document.getElementById('endCallButton').addEventListener('click', endCall);
+
+// Função para iniciar chamada
+const startCall = async (targetUserId) => {
+    try {
+        // Verificar se já existe uma chamada em andamento
+        if (peerConnection) {
+            alert('Já existe uma chamada em andamento.');
+            return;
+        }
+
+        // Verificar se o usuário alvo existe
+        if (!targetUserId) {
+            alert('Por favor, informe o ID do usuário para chamar.');
+            return;
+        }
+
+        // Listar dispositivos de áudio disponíveis
+        await listAudioDevices();
+
+        // Solicitar permissão para usar o microfone
+        localStream = await navigator.mediaDevices.getUserMedia({ 
+            audio: {
+                deviceId: selectedAudioDevice ? { exact: selectedAudioDevice } : undefined,
+                echoCancellation: true,
+                noiseSuppression: true,
+                autoGainControl: true
+            }
+        });
+        
+        // Criar conexão peer
+        peerConnection = new RTCPeerConnection(peerConfig);
+        
+        // Adicionar stream local
+        localStream.getTracks().forEach(track => {
+            peerConnection.addTrack(track, localStream);
+        });
+        
+        // Configurar handlers
+        setupPeerConnectionHandlers(targetUserId);
+        
+        // Criar e enviar oferta
+        const offer = await peerConnection.createOffer({
+            offerToReceiveAudio: true
+        });
+        await peerConnection.setLocalDescription(offer);
+        
+        // Emitir evento de chamada
+        socket.emit('call-user', {
+            targetUserId: targetUserId,
+            offer: offer,
+            caller: {
+                id: currentUser._id,
+                username: currentUser.username,
+                profileImage: currentUser.profileImage
+            }
+        });
+        
+        // Mostrar modal de chamada
+        showCallModal('Chamando...');
+        
+        // Adicionar usuário atual à lista de participantes
+        addCallParticipant(currentUser, 'Você');
+        
+    } catch (error) {
+        console.error('Erro ao iniciar chamada:', error);
+        alert('Erro ao iniciar chamada. Verifique se o microfone está disponível.');
+        endCall();
+    }
+};
+
+// Função para listar dispositivos de áudio
+const listAudioDevices = async () => {
+    try {
+        const devices = await navigator.mediaDevices.enumerateDevices();
+        const audioInputs = devices.filter(device => device.kind === 'audioinput');
+        
+        const audioSelect = document.getElementById('audioInput');
+        audioSelect.innerHTML = '';
+        
+        audioInputs.forEach(device => {
+            const option = document.createElement('option');
+            option.value = device.deviceId;
+            option.text = device.label || `Microfone ${audioSelect.length + 1}`;
+            audioSelect.appendChild(option);
+        });
+        
+        // Selecionar o dispositivo padrão ou o primeiro disponível
+        if (!selectedAudioDevice && audioInputs.length > 0) {
+            selectedAudioDevice = audioInputs[0].deviceId;
+            audioSelect.value = selectedAudioDevice;
+        }
+    } catch (error) {
+        console.error('Erro ao listar dispositivos de áudio:', error);
+    }
+};
+
+// Função para configurar handlers da conexão peer
+const setupPeerConnectionHandlers = (targetUserId) => {
+    peerConnection.onicecandidate = (event) => {
+        if (event.candidate) {
+            socket.emit('ice-candidate', {
+                candidate: event.candidate,
+                targetUserId: targetUserId
+            });
+        }
+    };
+
+    peerConnection.ontrack = (event) => {
+        console.log('Stream remoto recebido');
+        const remoteAudio = new Audio();
+        remoteAudio.srcObject = event.streams[0];
+        remoteAudio.play().catch(console.error);
+    };
+
+    peerConnection.onconnectionstatechange = (event) => {
+        console.log('Estado da conexão:', peerConnection.connectionState);
+        if (peerConnection.connectionState === 'connected') {
+            document.getElementById('callStatus').textContent = 'Conectado';
+            startCallTimer();
+        }
+    };
+};
+
+// Função para adicionar participante à chamada
+const addCallParticipant = (user, status = '') => {
+    const participantsList = document.getElementById('callParticipantsList');
+    const participantItem = document.createElement('li');
+    participantItem.dataset.userId = user._id;
+    
+    participantItem.innerHTML = `
+        <img src="${user.profileImage}" alt="${user.username}" class="participant-avatar">
+        <span class="participant-name">${user.username}</span>
+        <span class="participant-status">${status}</span>
+    `;
+    
+    participantsList.appendChild(participantItem);
+    callParticipants.set(user._id, user);
+};
+
+// Função para remover participante da chamada
+const removeCallParticipant = (userId) => {
+    const participantItem = document.querySelector(`#callParticipantsList li[data-user-id="${userId}"]`);
+    if (participantItem) {
+        participantItem.remove();
+    }
+    callParticipants.delete(userId);
+};
+
+// Função para atualizar volume do microfone
+const updateMicrophoneVolume = (volume) => {
+    if (localStream) {
+        const audioTrack = localStream.getAudioTracks()[0];
+        if (audioTrack) {
+            audioTrack.applyConstraints({
+                volume: volume / 100
+            }).catch(console.error);
+        }
+    }
+};
+
+// Event listeners para controles de áudio
+document.getElementById('audioInput').addEventListener('change', async (e) => {
+    selectedAudioDevice = e.target.value;
+    if (localStream) {
+        // Parar tracks atuais
+        localStream.getTracks().forEach(track => track.stop());
+        
+        try {
+            // Obter novo stream com o dispositivo selecionado
+            localStream = await navigator.mediaDevices.getUserMedia({
+                audio: {
+                    deviceId: { exact: selectedAudioDevice },
+                    echoCancellation: true,
+                    noiseSuppression: true,
+                    autoGainControl: true
+                }
+            });
+            
+            // Substituir tracks na conexão peer
+            if (peerConnection) {
+                const senders = peerConnection.getSenders();
+                const audioSender = senders.find(sender => sender.track.kind === 'audio');
+                if (audioSender) {
+                    audioSender.replaceTrack(localStream.getAudioTracks()[0]);
+                }
+            }
+        } catch (error) {
+            console.error('Erro ao trocar dispositivo de áudio:', error);
+            alert('Erro ao trocar dispositivo de áudio. Por favor, tente novamente.');
+        }
+    }
+});
+
+document.getElementById('micVolume').addEventListener('input', (e) => {
+    updateMicrophoneVolume(e.target.value);
+}); 

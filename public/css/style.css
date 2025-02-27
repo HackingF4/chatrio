@@ -1059,7 +1059,7 @@ body:not(.light-theme) emoji-picker {
 }
 
 .modal-content.voice-call {
-    max-width: 400px;
+    max-width: 500px;
     background-color: var(--background-primary);
     border-radius: 15px;
 }
@@ -1148,4 +1148,119 @@ body:not(.light-theme) emoji-picker {
 
 .calling {
     animation: pulse 1.5s infinite;
+}
+
+/* Estilos para chamada de voz */
+.call-participants {
+    margin: 20px 0;
+    padding: 15px;
+    background-color: var(--background-darker);
+    border-radius: 8px;
+}
+
+.call-participants h3 {
+    color: var(--text-color);
+    font-size: 1rem;
+    margin-bottom: 10px;
+}
+
+#callParticipantsList {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+#callParticipantsList li {
+    display: flex;
+    align-items: center;
+    padding: 8px;
+    margin: 4px 0;
+    background-color: var(--background-primary);
+    border-radius: 4px;
+}
+
+#callParticipantsList .participant-avatar {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    margin-right: 10px;
+}
+
+#callParticipantsList .participant-name {
+    color: var(--text-color);
+    flex: 1;
+}
+
+#callParticipantsList .participant-status {
+    font-size: 0.8rem;
+    color: var(--text-muted);
+}
+
+.audio-controls {
+    margin: 20px 0;
+    padding: 15px;
+    background-color: var(--background-darker);
+    border-radius: 8px;
+}
+
+.audio-controls h3 {
+    color: var(--text-color);
+    font-size: 1rem;
+    margin-bottom: 15px;
+}
+
+.audio-select {
+    margin-bottom: 15px;
+}
+
+.audio-select label {
+    display: block;
+    color: var(--text-color);
+    margin-bottom: 5px;
+}
+
+.audio-select select {
+    width: 100%;
+    padding: 8px;
+    background-color: var(--background-primary);
+    color: var(--text-color);
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+}
+
+.volume-control {
+    margin-top: 15px;
+}
+
+.volume-control label {
+    display: block;
+    color: var(--text-color);
+    margin-bottom: 5px;
+}
+
+.volume-control input[type="range"] {
+    width: 100%;
+    margin: 8px 0;
+    -webkit-appearance: none;
+    background: var(--background-primary);
+    border-radius: 10px;
+    height: 6px;
+}
+
+.volume-control input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 16px;
+    height: 16px;
+    background: var(--primary-color);
+    border-radius: 50%;
+    cursor: pointer;
+}
+
+.volume-control input[type="range"]::-moz-range-thumb {
+    width: 16px;
+    height: 16px;
+    background: var(--primary-color);
+    border-radius: 50%;
+    cursor: pointer;
+    border: none;
 } 

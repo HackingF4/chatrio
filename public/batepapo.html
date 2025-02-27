@@ -149,11 +149,26 @@
                         <span id="callDuration">00:00</span>
                     </div>
                 </div>
+                <div class="call-participants">
+                    <h3>Participantes</h3>
+                    <ul id="callParticipantsList"></ul>
+                </div>
+                <div class="audio-controls">
+                    <h3>Configurações de Áudio</h3>
+                    <div class="audio-select">
+                        <label for="audioInput">Microfone:</label>
+                        <select id="audioInput"></select>
+                    </div>
+                    <div class="volume-control">
+                        <label for="micVolume">Volume do Microfone:</label>
+                        <input type="range" id="micVolume" min="0" max="100" value="100">
+                    </div>
+                </div>
                 <div class="call-controls">
-                    <button id="muteButton" class="call-button">
+                    <button id="muteButton" class="call-button" title="Mutar/Desmutar">
                         <i class="fas fa-microphone"></i>
                     </button>
-                    <button id="endCallButton" class="call-button end-call">
+                    <button id="endCallButton" class="call-button end-call" title="Encerrar Chamada">
                         <i class="fas fa-phone-slash"></i>
                     </button>
                 </div>
