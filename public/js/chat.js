@@ -621,53 +621,6 @@ window.clearChat = async function() {
     }
 };
 
-// Função para configurar preview da foto
-function setupPhotoPreview() {
-    const photoInput = document.getElementById('photoInput');
-    const previewImage = document.getElementById('previewImage');
-    const uploadArea = document.querySelector('.upload-area');
-    
-    if (!photoInput || !previewImage) return;
-    
-    // Mostrar foto atual no preview se existir
-    const currentUser = JSON.parse(localStorage.getItem('user'));
-    if (currentUser && currentUser.profileImage) {
-        previewImage.src = currentUser.profileImage;
-        previewImage.style.display = 'block';
-    }
-    
-    photoInput.addEventListener('change', async function(e) {
-        const file = e.target.files[0];
-        if (!file) {
-            previewImage.style.display = 'none';
-            return;
-        }
-        
-        try {
-            const reader = new FileReader();
-            reader.onload = function(e) {
-                previewImage.src = e.target.result;
-                previewImage.style.display = 'block';
-                
-                // Ajustar estilo do preview
-                previewImage.style.width = '100%';
-                previewImage.style.height = '100%';
-                previewImage.style.objectFit = 'cover';
-            };
-            reader.readAsDataURL(file);
-            
-            // Mostrar botões de ação
-            const uploadActions = document.querySelector('.upload-actions');
-            if (uploadActions) {
-                uploadActions.style.display = 'flex';
-            }
-        } catch (error) {
-            console.error('Erro ao gerar preview:', error);
-            alert('Erro ao gerar preview da imagem. Por favor, tente novamente.');
-        }
-    });
-}
-
 // Função para fazer upload da foto de perfil
 window.uploadProfilePhoto = async () => {
     const photoInput = document.getElementById('photoInput');
@@ -686,16 +639,20 @@ window.uploadProfilePhoto = async () => {
             saveButton.textContent = 'Salvando...';
         }
         
-        // Criar FormData para enviar o arquivo
-        const formData = new FormData();
-        formData.append('photo', file);
+        // Converter arquivo para base64
+        const base64 = await new Promise((resolve) => {
+            const reader = new FileReader();
+            reader.onload = (e) => resolve(e.target.result);
+            reader.readAsDataURL(file);
+        });
         
         const response = await fetch(`${API_URL}/auth/profile-photo`, {
             method: 'POST',
             headers: {
+                'Content-Type': 'application/json',
                 'Authorization': `Bearer ${getToken()}`
             },
-            body: formData
+            body: JSON.stringify({ photoData: base64 })
         });
         
         if (!response.ok) {
@@ -711,6 +668,7 @@ window.uploadProfilePhoto = async () => {
         
         // Atualizar foto na interface
         document.getElementById('userAvatar').src = data.profileImage;
+        document.getElementById('previewImage').src = data.profileImage;
         
         // Fechar modal
         document.getElementById('profileModal').style.display = 'none';
@@ -736,6 +694,51 @@ window.uploadProfilePhoto = async () => {
         }
     }
 };
+
+// Função para configurar preview da foto
+function setupPhotoPreview() {
+    const photoInput = document.getElementById('photoInput');
+    const previewImage = document.getElementById('previewImage');
+    
+    if (!photoInput || !previewImage) return;
+    
+    // Mostrar foto atual no preview se existir
+    const currentUser = JSON.parse(localStorage.getItem('user'));
+    if (currentUser && currentUser.profileImage) {
+        previewImage.src = currentUser.profileImage;
+        previewImage.style.display = 'block';
+        previewImage.classList.add('visible');
+    }
+    
+    photoInput.addEventListener('change', async function(e) {
+        const file = e.target.files[0];
+        if (!file) {
+            previewImage.style.display = 'none';
+            previewImage.classList.remove('visible');
+            return;
+        }
+        
+        try {
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                previewImage.src = e.target.result;
+                previewImage.style.display = 'block';
+                previewImage.classList.add('visible');
+            };
+            reader.readAsDataURL(file);
+            
+            // Mostrar botões de ação
+            const uploadActions = document.querySelector('.upload-actions');
+            if (uploadActions) {
+                uploadActions.style.display = 'flex';
+                uploadActions.classList.add('visible');
+            }
+        } catch (error) {
+            console.error('Erro ao gerar preview:', error);
+            alert('Erro ao gerar preview da imagem. Por favor, tente novamente.');
+        }
+    });
+}
 
 // Event Listeners
 document.addEventListener('DOMContentLoaded', () => {
@@ -1011,19 +1014,6 @@ const resetPreview = () => {
     const previewCircle = document.querySelector('.preview-circle');
     previewCircle.innerHTML = '<span>Preview</span>';
 };
-
-// Função para mostrar preview da imagem
-document.getElementById('photoInput').addEventListener('change', function(e) {
-    const file = e.target.files[0];
-    if (file) {
-        const reader = new FileReader();
-        reader.onload = function(e) {
-            const previewCircle = document.querySelector('.preview-circle');
-            previewCircle.innerHTML = `<img src="${e.target.result}" alt="Preview">`;
-        };
-        reader.readAsDataURL(file);
-    }
-});
 
 // Fechar modal quando clicar no X ou fora do modal
 window.onclick = function(event) {
