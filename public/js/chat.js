@@ -668,7 +668,6 @@ window.uploadProfilePhoto = async () => {
         
         // Atualizar foto na interface
         document.getElementById('userAvatar').src = data.profileImage;
-        document.getElementById('previewImage').src = data.profileImage;
         
         // Fechar modal
         document.getElementById('profileModal').style.display = 'none';
@@ -701,30 +700,27 @@ function setupPhotoPreview() {
     const previewImage = document.getElementById('previewImage');
     const uploadActions = document.querySelector('.upload-actions');
 
-    if (!photoInput || !previewImage) return;
+    if (!photoInput || !previewImage) {
+        console.error('Elementos de foto não encontrados');
+        return;
+    }
 
-    photoInput.addEventListener('change', async (e) => {
+    photoInput.addEventListener('change', function(e) {
         const file = e.target.files[0];
         if (!file) {
-            previewImage.src = '';
-            previewImage.classList.remove('visible');
-            uploadActions.classList.remove('visible');
+            previewImage.style.display = 'none';
+            uploadActions.style.display = 'none';
             return;
         }
 
-        try {
-            // Criar URL para preview
-            const reader = new FileReader();
-            reader.onload = function(e) {
-                previewImage.src = e.target.result;
-                previewImage.classList.add('visible');
-                uploadActions.classList.add('visible');
-            };
-            reader.readAsDataURL(file);
-        } catch (error) {
-            console.error('Erro ao gerar preview:', error);
-            alert('Erro ao gerar preview da imagem');
-        }
+        // Criar URL para preview
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            previewImage.src = e.target.result;
+            previewImage.style.display = 'block';
+            uploadActions.style.display = 'flex';
+        };
+        reader.readAsDataURL(file);
     });
 }
 
