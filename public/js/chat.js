@@ -627,68 +627,55 @@ window.uploadProfilePhoto = async () => {
     const file = photoInput.files[0];
     
     if (!file) {
-        alert('Por favor, selecione uma imagem.');
+        alert('Por favor, selecione uma foto primeiro.');
         return;
     }
     
+    const formData = new FormData();
+    formData.append('photoData', file);
+    
     try {
-        // Criar FormData para enviar o arquivo
-        const formData = new FormData();
-        formData.append('photoData', file);
-
         const response = await fetch(`${API_URL}/auth/profile-photo`, {
             method: 'POST',
             headers: {
-                'Authorization': `Bearer ${getToken()}`
+                'Authorization': `Bearer ${localStorage.getItem('token')}`
             },
             body: formData
         });
-
-        const data = await response.json();
         
         if (!response.ok) {
-            throw new Error(data.message || 'Erro ao atualizar foto');
+            throw new Error('Erro ao fazer upload da foto');
         }
-
-        // Atualizar foto no localStorage
-        const user = JSON.parse(localStorage.getItem('user'));
-        user.profileImage = data.profileImage;
-        localStorage.setItem('user', JSON.stringify(user));
-
-        // Atualizar foto na interface
-        document.getElementById('userAvatar').src = data.profileImage;
         
-        // Fechar modal
+        const data = await response.json();
+        const currentUser = JSON.parse(localStorage.getItem('user'));
+        currentUser.profileImage = data.profileImage;
+        localStorage.setItem('user', JSON.stringify(currentUser));
+        
+        document.getElementById('userAvatar').src = data.profileImage;
         document.getElementById('profileModal').style.display = 'none';
         
-        // Notificar outros usuários se o socket estiver conectado
         if (socket && socket.connected) {
-            socket.emit('user connected', {
-                id: user.id,
-                username: user.username,
-                profileImage: user.profileImage,
-                role: user.role,
-                isMuted: user.isMuted
-            });
+            socket.emit('profile photo updated', { userId: currentUser._id, profileImage: data.profileImage });
         }
-
+        
         alert('Foto de perfil atualizada com sucesso!');
     } catch (error) {
-        console.error('Erro ao atualizar foto:', error);
-        alert('Erro ao atualizar foto de perfil: ' + error.message);
+        console.error('Erro ao fazer upload da foto:', error);
+        alert('Erro ao fazer upload da foto. Por favor, tente novamente.');
     }
 };
 
 // Event Listeners
 document.addEventListener('DOMContentLoaded', () => {
-    // Carregar usuário atual
-    const savedUser = localStorage.getItem('user');
-    if (!savedUser) {
-        window.location.href = '/';
-        return;
-    }
-
     try {
+        // Carregar usuário atual
+        const savedUser = localStorage.getItem('user');
+        if (!savedUser) {
+            window.location.href = '/';
+            return;
+        }
+
         currentUser = JSON.parse(savedUser);
         
         // Configurar interface do usuário
@@ -700,83 +687,81 @@ document.addEventListener('DOMContentLoaded', () => {
         // Configurar eventos
         setupEventListeners();
         
-        // Atualizar lista de usuários periodicamente
-        if (socket) {
-            setInterval(() => {
-                if (socket.connected) {
-                    socket.emit('get users');
+        // Configurar preview da foto
+        const photoInput = document.getElementById('photoInput');
+        const previewImage = document.getElementById('previewImage');
+        const userAvatar = document.getElementById('userAvatar');
+        
+        if (photoInput && previewImage) {
+            // Mostrar foto atual no preview
+            if (currentUser.profileImage) {
+                previewImage.src = currentUser.profileImage;
+                previewImage.style.display = 'block';
+            }
+            
+            // Configurar evento de preview
+            photoInput.addEventListener('change', (e) => {
+                const file = e.target.files[0];
+                if (file) {
+                    const reader = new FileReader();
+                    reader.onload = function(e) {
+                        previewImage.src = e.target.result;
+                        previewImage.style.display = 'block';
+                    }
+                    reader.readAsDataURL(file);
                 }
-            }, 3000);
+            });
         }
+        
+        // Configurar modal de perfil
+        const profileModal = document.getElementById('profileModal');
+        const closeBtn = profileModal.querySelector('.close');
+        
+        closeBtn.onclick = function() {
+            profileModal.style.display = 'none';
+        }
+        
+        window.onclick = function(event) {
+            if (event.target == profileModal) {
+                profileModal.style.display = 'none';
+            }
+        }
+        
     } catch (error) {
         console.error('Erro ao inicializar chat:', error);
-        alert('Erro ao inicializar o chat. Por favor, faça login novamente.');
+        localStorage.clear();
         window.location.href = '/';
     }
 });
 
 // Função para configurar interface do usuário
 const setupUserInterface = () => {
-    // Atualizar informações do usuário
-    const currentUser = JSON.parse(localStorage.getItem('user'));
-    document.getElementById('username').textContent = currentUser.username;
-    document.getElementById('userAvatar').src = currentUser.profileImage || 'https://www.gravatar.com/avatar/00000000000000000000000000000000?d=mp&f=y';
-    
-    // Configurar preview da foto
-    setupPhotoPreview();
-    
-    // Atualizar avatar do usuário
-    const userAvatar = document.getElementById('userAvatar');
-    const previewImage = document.getElementById('previewImage');
-    
-    if (userAvatar && currentUser?.profileImage) {
-        userAvatar.src = currentUser.profileImage;
-        if (previewImage) {
+    try {
+        const currentUser = JSON.parse(localStorage.getItem('user'));
+        if (!currentUser) {
+            window.location.href = '/login.html';
+            return;
+        }
+
+        document.getElementById('username').textContent = currentUser.username;
+        const userAvatar = document.getElementById('userAvatar');
+        if (userAvatar && currentUser.profileImage) {
+            userAvatar.src = currentUser.profileImage;
+        }
+
+        const previewImage = document.getElementById('previewImage');
+        if (previewImage && currentUser.profileImage) {
             previewImage.src = currentUser.profileImage;
             previewImage.style.display = 'block';
         }
-    }
 
-    // Configurar envio de imagens no chat
-    const chatImageButton = document.querySelector('.image-button');
-    const chatImageInput = document.getElementById('chatImageInput');
-    
-    if (chatImageButton && chatImageInput) {
-        chatImageButton.onclick = () => chatImageInput.click();
-        
-        chatImageInput.onchange = async (e) => {
-            const file = e.target.files[0];
-            if (!file) return;
-            
-            if (!file.type.startsWith('image/')) {
-                alert('Por favor, selecione apenas imagens.');
-                return;
-            }
-            
-            try {
-                const compressedImage = await compressImage(file);
-                sendMessage(compressedImage, 'image');
-            } catch (error) {
-                console.error('Erro ao processar imagem:', error);
-                alert('Erro ao processar imagem');
-            }
-            
-            chatImageInput.value = '';
-        };
-    }
-
-    // Configurar painel de administração
-    const adminPanelButton = document.getElementById('adminPanelButton');
-    const adminPanel = document.getElementById('adminPanel');
-
-    if (currentUser.role === 'admin' && adminPanelButton && adminPanel) {
-        adminPanelButton.style.display = 'flex';
-        
-        adminPanelButton.addEventListener('click', () => {
-            const isVisible = adminPanel.style.display === 'block';
-            adminPanel.style.display = isVisible ? 'none' : 'block';
-            adminPanelButton.style.backgroundColor = isVisible ? '#7289da' : '#5b6eae';
-        });
+        setupPhotoPreview();
+        initializeSocket();
+        setupEventListeners();
+    } catch (error) {
+        console.error('Erro ao inicializar o chat:', error);
+        alert('Erro ao inicializar o chat. Por favor, faça login novamente.');
+        window.location.href = '/login.html';
     }
 };
 
@@ -980,12 +965,12 @@ const setupPhotoPreview = () => {
     
     if (!photoInput || !previewImage) return;
     
-    photoInput.addEventListener('change', (e) => {
+    photoInput.addEventListener('change', function(e) {
         const file = e.target.files[0];
         if (!file) return;
         
         const reader = new FileReader();
-        reader.onload = (e) => {
+        reader.onload = function(e) {
             previewImage.src = e.target.result;
             previewImage.style.display = 'block';
         };

@@ -103,13 +103,28 @@
     <!-- Modal de Perfil -->
     <div id="profileModal" class="modal">
         <div class="modal-content">
-            <span class="close">&times;</span>
-            <h2>Atualizar Foto de Perfil</h2>
-            <div class="upload-area">
-                <img id="previewImage" src="" alt="Preview" style="max-width: 200px; max-height: 200px; display: none;">
-                <input type="file" id="photoInput" accept="image/*" style="display: none;">
-                <button type="button" onclick="document.getElementById('photoInput').click()">Escolher Foto</button>
-                <button type="button" onclick="uploadProfilePhoto()">Salvar</button>
+            <div class="modal-header">
+                <h2>Atualizar Foto de Perfil</h2>
+                <span class="close">&times;</span>
+            </div>
+            <div class="modal-body">
+                <div class="profile-photo-container">
+                    <div class="profile-photo-preview">
+                        <img id="previewImage" src="" alt="Preview">
+                    </div>
+                    <input type="file" id="photoInput" accept="image/*" style="display: none">
+                    <div class="profile-photo-buttons">
+                        <button class="profile-photo-button" onclick="document.getElementById('photoInput').click()">
+                            <i class="fas fa-upload"></i> Escolher Foto
+                        </button>
+                        <button class="profile-photo-button" onclick="uploadProfilePhoto()">
+                            <i class="fas fa-save"></i> Salvar
+                        </button>
+                        <button class="profile-photo-button cancel" onclick="document.getElementById('profileModal').style.display='none'">
+                            <i class="fas fa-times"></i> Cancelar
+                        </button>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
