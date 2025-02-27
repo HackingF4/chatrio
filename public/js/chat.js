@@ -109,6 +109,115 @@ const initializeSocket = () => {
         }
     });
 
+    // Eventos de chamada de voz
+    socket.on('call-made', async (data) => {
+        console.log('Chamada recebida:', data);
+        try {
+            const caller = data.caller;
+            const confirmCall = confirm(`${caller.username} está te chamando. Deseja atender?`);
+            
+            if (!confirmCall) {
+                socket.emit('call-rejected', { targetUserId: caller.id });
+                return;
+            }
+            
+            // Solicitar permissão para usar o microfone
+            localStream = await navigator.mediaDevices.getUserMedia({ 
+                audio: true,
+                video: false 
+            });
+            
+            // Criar conexão peer
+            peerConnection = new RTCPeerConnection(peerConfig);
+            
+            // Adicionar stream local
+            localStream.getTracks().forEach(track => {
+                peerConnection.addTrack(track, localStream);
+            });
+            
+            // Configurar handlers
+            peerConnection.onicecandidate = (event) => {
+                if (event.candidate) {
+                    socket.emit('ice-candidate', {
+                        candidate: event.candidate,
+                        targetUserId: caller.id
+                    });
+                }
+            };
+            
+            peerConnection.ontrack = (event) => {
+                console.log('Stream remoto recebido');
+                const remoteAudio = new Audio();
+                remoteAudio.srcObject = event.streams[0];
+                remoteAudio.play().catch(console.error);
+            };
+
+            peerConnection.onconnectionstatechange = (event) => {
+                console.log('Estado da conexão:', peerConnection.connectionState);
+                if (peerConnection.connectionState === 'connected') {
+                    console.log('Chamada conectada!');
+                    document.getElementById('callStatus').textContent = 'Conectado';
+                    startCallTimer();
+                }
+            };
+            
+            // Aceitar oferta
+            await peerConnection.setRemoteDescription(new RTCSessionDescription(data.offer));
+            const answer = await peerConnection.createAnswer();
+            await peerConnection.setLocalDescription(answer);
+            
+            socket.emit('call-answered', {
+                targetUserId: caller.id,
+                answer: answer
+            });
+            
+            // Mostrar modal de chamada
+            showCallModal('Em chamada com ' + caller.username);
+            const avatarElement = document.getElementById('callUserAvatar');
+            avatarElement.src = caller.profileImage;
+            startCallTimer();
+            
+        } catch (error) {
+            console.error('Erro ao receber chamada:', error);
+            socket.emit('call-rejected', { targetUserId: data.caller.id });
+            alert('Erro ao receber chamada. Verifique se o microfone está disponível.');
+        }
+    });
+
+    socket.on('call-answered', async (data) => {
+        console.log('Chamada atendida:', data);
+        try {
+            await peerConnection.setRemoteDescription(new RTCSessionDescription(data.answer));
+            document.getElementById('callStatus').textContent = 'Conectado';
+            document.getElementById('callUserAvatar').classList.remove('calling');
+            startCallTimer();
+        } catch (error) {
+            console.error('Erro ao processar resposta da chamada:', error);
+            endCall();
+        }
+    });
+
+    socket.on('call-rejected', () => {
+        alert('Chamada recusada pelo usuário');
+        endCall();
+    });
+
+    socket.on('call-ended', () => {
+        alert('Chamada encerrada');
+        endCall();
+    });
+
+    socket.on('ice-candidate', async (data) => {
+        console.log('ICE candidate recebido:', data);
+        if (peerConnection) {
+            try {
+                await peerConnection.addIceCandidate(new RTCIceCandidate(data.candidate));
+            } catch (error) {
+                console.error('Erro ao adicionar ICE candidate:', error);
+            }
+        }
+    });
+
     return socket;
 };
 
@@ -1028,232 +1137,6 @@ const changeRoom = (newRoom) => {
     loadMessages(newRoom);
 };
 
-// Socket.io event listeners
-socket.on('connect', () => {
-    console.log('Conectado ao servidor Socket.io');
-    
-    const storedUser = localStorage.getItem('user');
-    if (storedUser) {
-        currentUser = JSON.parse(storedUser);
-        
-        // Enviar dados do usuário
-        socket.emit('user connected', {
-            id: currentUser.id,
-            username: currentUser.username,
-            profileImage: currentUser.profileImage,
-            role: currentUser.role,
-            isMuted: currentUser.isMuted
-        });
-
-        // Entrar na sala e solicitar lista de usuários
-        socket.emit('join room', currentRoom);
-        socket.emit('get users');
-        
-        // Atualizar lista a cada 3 segundos
-        setInterval(() => {
-            if (socket.connected) {
-                socket.emit('get users');
-            }
-        }, 3000);
-    }
-});
-
-socket.on('disconnect', () => {
-    console.log('Desconectado do servidor Socket.io');
-});
-
-socket.on('reconnect', () => {
-    console.log('Reconectado ao servidor Socket.io');
-    
-    // Reconectar à sala e atualizar dados
-    if (currentUser) {
-        socket.emit('user connected', {
-            id: currentUser.id,
-            username: currentUser.username,
-            profileImage: currentUser.profileImage,
-            role: currentUser.role,
-            isMuted: currentUser.isMuted
-        });
-        socket.emit('join room', currentRoom);
-        socket.emit('get users');
-    }
-});
-
-socket.on('new message', (message) => {
-    if (message.room === currentRoom) {
-        const container = document.getElementById('messageContainer');
-        const messageElement = createMessageElement(message);
-        container.appendChild(messageElement);
-        scrollToBottom();
-    }
-});
-
-socket.on('users online', (users) => {
-    console.log('Usuários online recebidos:', users);
-    updateOnlineUsers(users);
-});
-
-socket.on('message deleted', (messageId) => {
-    const messageElement = document.querySelector(`[data-message-id="${messageId}"]`);
-    if (messageElement) {
-        messageElement.remove();
-    }
-});
-
-// Socket.io event listeners para ações de admin
-socket.on('user muted', (data) => {
-    console.log(`Usuário ${data.username} foi mutado`);
-    // Recarregar lista de usuários
-    socket.emit('get users');
-});
-
-socket.on('user unmuted', (data) => {
-    console.log(`Usuário ${data.username} foi desmutado`);
-    // Recarregar lista de usuários
-    socket.emit('get users');
-});
-
-// Eventos de usuário conectado/desconectado
-socket.on('user joined', (user) => {
-    console.log('Usuário entrou:', user);
-    socket.emit('get users');
-});
-
-socket.on('user left', (user) => {
-    console.log('Usuário saiu:', user);
-    socket.emit('get users');
-});
-
-// Função para abrir o modal de perfil
-const openProfileModal = () => {
-    const modal = document.getElementById('profileModal');
-    modal.style.display = 'block';
-};
-
-// Função para fechar o modal de perfil
-const closeProfileModal = () => {
-    const modal = document.getElementById('profileModal');
-    modal.style.display = 'none';
-    resetPreview();
-};
-
-// Função para resetar o preview
-const resetPreview = () => {
-    const previewCircle = document.querySelector('.preview-circle');
-    previewCircle.innerHTML = '<span>Preview</span>';
-};
-
-// Fechar modal quando clicar no X ou fora do modal
-window.onclick = function(event) {
-    const modal = document.getElementById('profileModal');
-    if (event.target == modal || event.target.classList.contains('close')) {
-        closeProfileModal();
-    }
-};
-
-// Função para iniciar chamada
-const startCall = async (targetUserId) => {
-    try {
-        // Solicitar permissão para usar o microfone
-        localStream = await navigator.mediaDevices.getUserMedia({ audio: true });
-        
-        // Criar conexão peer
-        peerConnection = new RTCPeerConnection(peerConfig);
-        
-        // Adicionar stream local
-        localStream.getTracks().forEach(track => {
-            peerConnection.addTrack(track, localStream);
-        });
-        
-        // Configurar handlers de ICE
-        peerConnection.onicecandidate = (event) => {
-            if (event.candidate) {
-                socket.emit('ice-candidate', {
-                    candidate: event.candidate,
-                    targetUserId: targetUserId
-                });
-            }
-        };
-        
-        // Criar e enviar oferta
-        const offer = await peerConnection.createOffer();
-        await peerConnection.setLocalDescription(offer);
-        
-        socket.emit('call-user', {
-            targetUserId: targetUserId,
-            offer: offer
-        });
-        
-        // Mostrar modal de chamada
-        showCallModal('Chamando...');
-        document.getElementById('callUserAvatar').classList.add('calling');
-        
-    } catch (error) {
-        console.error('Erro ao iniciar chamada:', error);
-        alert('Erro ao iniciar chamada. Verifique se o microfone está disponível.');
-        endCall();
-    }
-};
-
-// Função para receber chamada
-const handleIncomingCall = async (data) => {
-    try {
-        const caller = data.caller;
-        const confirmCall = confirm(`${caller.username} está te chamando. Deseja atender?`);
-        
-        if (!confirmCall) {
-            socket.emit('call-rejected', { targetUserId: caller.id });
-            return;
-        }
-        
-        // Solicitar permissão para usar o microfone
-        localStream = await navigator.mediaDevices.getUserMedia({ audio: true });
-        
-        // Criar conexão peer
-        peerConnection = new RTCPeerConnection(peerConfig);
-        
-        // Adicionar stream local
-        localStream.getTracks().forEach(track => {
-            peerConnection.addTrack(track, localStream);
-        });
-        
-        // Configurar handlers
-        peerConnection.onicecandidate = (event) => {
-            if (event.candidate) {
-                socket.emit('ice-candidate', {
-                    candidate: event.candidate,
-                    targetUserId: caller.id
-                });
-            }
-        };
-        
-        peerConnection.ontrack = (event) => {
-            const remoteAudio = new Audio();
-            remoteAudio.srcObject = event.streams[0];
-            remoteAudio.play();
-        };
-        
-        // Aceitar oferta
-        await peerConnection.setRemoteDescription(new RTCSessionDescription(data.offer));
-        const answer = await peerConnection.createAnswer();
-        await peerConnection.setLocalDescription(answer);
-        
-        socket.emit('call-answered', {
-            targetUserId: caller.id,
-            answer: answer
-        });
-        
-        // Mostrar modal de chamada
-        showCallModal('Em chamada');
-        startCallTimer();
-        
-    } catch (error) {
-        console.error('Erro ao receber chamada:', error);
-        socket.emit('call-rejected', { targetUserId: caller.id });
-        alert('Erro ao receber chamada. Verifique se o microfone está disponível.');
-    }
-};
-
 // Função para mostrar modal de chamada
 const showCallModal = (status) => {
     const modal = document.getElementById('voiceCallModal');
@@ -1353,8 +1236,9 @@ socket.on('ice-candidate', async (data) => {
 // Event listeners para botões
 document.getElementById('voiceCallButton').addEventListener('click', () => {
     const targetUser = prompt('Digite o ID do usuário para chamar:');
-    if (targetUser) {
-        startCall(targetUser);
+    if (targetUser && targetUser.trim()) {
+        console.log('Iniciando chamada para:', targetUser);
+        startCall(targetUser.trim());
     }
 });
 
