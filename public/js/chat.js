@@ -712,18 +712,11 @@ window.clearChat = async function() {
 
 // Função para configurar preview da foto
 function setupPhotoPreview() {
-    const photoButton = document.querySelector('.photo-button');
     const fileInput = document.getElementById('fileInput');
     const imagePreview = document.getElementById('imagePreview');
     const uploadActions = document.querySelector('.upload-actions');
     const profileModal = document.getElementById('profileModal');
-
-    // Event listener para o botão de foto
-    if (photoButton) {
-        photoButton.addEventListener('click', () => {
-            profileModal.style.display = 'block';
-        });
-    }
+    const saveButton = document.getElementById('saveProfilePhoto');
 
     // Event listener para o input de arquivo
     if (fileInput) {
@@ -741,7 +734,10 @@ function setupPhotoPreview() {
                 reader.onload = function(e) {
                     imagePreview.src = e.target.result;
                     imagePreview.style.display = 'block';
+                    // Mostrar os botões
                     uploadActions.style.display = 'flex';
+                    uploadActions.style.justifyContent = 'space-between';
+                    uploadActions.style.marginTop = '20px';
                 };
                 reader.readAsDataURL(file);
             } catch (error) {
@@ -756,6 +752,9 @@ function setupPhotoPreview() {
     if (closeButton) {
         closeButton.addEventListener('click', () => {
             profileModal.style.display = 'none';
+            // Limpar preview e esconder botões ao fechar
+            imagePreview.style.display = 'none';
+            uploadActions.style.display = 'none';
         });
     }
 
@@ -763,8 +762,16 @@ function setupPhotoPreview() {
     window.addEventListener('click', (event) => {
         if (event.target === profileModal) {
             profileModal.style.display = 'none';
+            // Limpar preview e esconder botões ao fechar
+            imagePreview.style.display = 'none';
+            uploadActions.style.display = 'none';
         }
     });
+
+    // Configurar botão de salvar
+    if (saveButton) {
+        saveButton.onclick = uploadProfilePhoto;
+    }
 }
 
 // Event Listeners
