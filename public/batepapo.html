@@ -105,29 +105,15 @@
         </div>
     </div>
 
-    <!-- Modal de Upload de Foto -->
+    <!-- Modal de Alteração de Foto de Perfil -->
     <div id="profileModal" class="modal">
         <div class="modal-content">
-            <div class="modal-header">
-                <h2>Alterar Foto de Perfil</h2>
-                <span class="close">&times;</span>
-            </div>
-            <div class="modal-body">
-                <form id="uploadForm" enctype="multipart/form-data">
-                    <div class="upload-area">
-                        <input type="file" id="fileInput" accept="image/*" style="display: none">
-                        <div class="upload-preview">
-                            <img id="imagePreview" src="" alt="Preview" style="display: none; max-width: 200px; border-radius: 50%;">
-                        </div>
-                        <button type="button" class="upload-button" onclick="document.getElementById('fileInput').click()">
-                            <i class="fas fa-upload"></i> Escolher Foto
-                        </button>
-                    </div>
-                    <div class="upload-actions">
-                        <button type="button" class="btn-secondary" onclick="document.getElementById('profileModal').style.display='none'">Cancelar</button>
-                        <button type="button" class="btn-primary" id="saveProfilePhoto" onclick="uploadProfilePhoto()">Salvar</button>
-                    </div>
-                </form>
+            <span class="close">&times;</span>
+            <h2>Alterar Foto de Perfil</h2>
+            <img id="imagePreview" src="" alt="Preview da Foto" style="display:none; width: 100px; height: 100px; border-radius: 50%; margin-bottom: 10px;">
+            <input type="file" id="fileInput" accept="image/*">
+            <div class="upload-actions" style="display:none;">
+                <button id="saveProfilePhoto">Salvar</button>
             </div>
         </div>
     </div>

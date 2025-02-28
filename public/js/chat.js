@@ -904,6 +904,18 @@ document.addEventListener('DOMContentLoaded', () => {
             });
         }
 
+        // Configurar troca de foto de perfil
+        const profileImageInput = document.getElementById('profileImageInput');
+        if (profileImageInput) {
+            profileImageInput.addEventListener('change', (e) => {
+                const file = e.target.files[0];
+                if (file) {
+                    console.log('Atualizando foto de perfil...');
+                    updateProfileImage(file);
+                }
+            });
+        }
+
         // Carregar mensagens iniciais
         loadMessages();
 
